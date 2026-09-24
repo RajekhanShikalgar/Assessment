@@ -26,7 +26,19 @@ from email.mime.multipart import MIMEMultipart
 import database
 import pdf_generator
 
-app = Flask(__name__)
+import jinja2
+
+template_dirs = [
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'),
+    os.path.dirname(os.path.abspath(__file__)),
+    'templates',
+    '.'
+]
+valid_template_dirs = [d for d in template_dirs if os.path.exists(d)]
+
+app = Flask(__name__, template_folder='templates', static_folder='static')
+if valid_template_dirs:
+    app.jinja_loader = jinja2.ChoiceLoader([jinja2.FileSystemLoader(d) for d in valid_template_dirs])
 app.secret_key = os.environ.get("SECRET_KEY", "rajekhan_internal_assessment_secret_key_2026")
 app.config['JSON_SORT_KEYS'] = False
 app.jinja_env.cache_size = 400  # Cache up to 400 compiled templates in memory
