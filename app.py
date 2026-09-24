@@ -662,7 +662,6 @@ def admin_forgot_password():
             new_password=new_password
         )
     
-    # Strictly DO NOT return new_password in the JSON response
     masked_email = admin_email
     if '@' in admin_email:
         parts = admin_email.split('@')
@@ -672,7 +671,8 @@ def admin_forgot_password():
 
     return jsonify({
         'success': True,
-        'message': f'नवीन पासवर्ड आपल्या नोंदणीकृत प्रशासकीय ईमेलवर ({masked_email}) पाठवला आहे. (New password sent to registered admin email.)',
+        'message': f'नवीन पासवर्ड आपल्या नोंदणीकृत प्रशासकीय ईमेलवर ({masked_email}) पाठवला आहे.',
+        'username': admin['username'],
         'email_masked': masked_email
     })
 
@@ -1767,7 +1767,7 @@ def teacher_forgot_password():
 
     return jsonify({
         'success': True,
-        'message': f'नवीन पासवर्ड आपल्या नोंदणीकृत ईमेलवर ({masked_email}) यशस्वीरीत्या पाठवला आहे. (New password sent to registered email.)',
+        'message': f'नवीन पासवर्ड आपल्या नोंदणीकृत ईमेलवर ({masked_email}) यशस्वीरीत्या पाठवला आहे.',
         'teacher_name': teacher['name'],
         'teacher_code': teacher['teacher_code'],
         'email_masked': masked_email
