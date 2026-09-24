@@ -801,10 +801,11 @@ def seed_database():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # 1. Seed / Ensure Admin with username 'rajekhan.in', email 'rajushikalgar@gmail.com', and password 'Saeed:Saud2'
-    admin_user = 'rajekhan.in'
-    admin_email = 'rajushikalgar@gmail.com'
-    admin_pwd_hash = hash_password('Saeed:Saud2')
+    # 1. Seed / Ensure Admin with username, email, and password
+    admin_user = os.environ.get('ADMIN_USERNAME', 'rajekhan.in').strip()
+    admin_email = os.environ.get('ADMIN_EMAIL', 'rajushikalgar@gmail.com').strip()
+    raw_admin_pwd = os.environ.get('ADMIN_PASSWORD', 'Saeed:Saud2').strip()
+    admin_pwd_hash = hash_password(raw_admin_pwd)
     cursor.execute("SELECT id FROM admins WHERE username = 'rajekhan.in' OR username = 'admin' OR email = 'rajushikalgar@gmail.com'")
     existing_admin = cursor.fetchone()
     if existing_admin:
