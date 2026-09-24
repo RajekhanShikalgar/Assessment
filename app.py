@@ -552,16 +552,26 @@ def get_assessment_types():
 def get_user_manual():
     lang = request.args.get('lang', 'mr').strip().lower()
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    if lang == 'en':
-        file_path = os.path.join(base_dir, 'manuals', 'complete_portal_user_manual_book_english.md')
-    else:
-        file_path = os.path.join(base_dir, 'manuals', 'complete_portal_user_manual_book.md')
+    filename = 'complete_portal_user_manual_book_english.md' if lang == 'en' else 'complete_portal_user_manual_book.md'
     
-    if not os.path.exists(file_path):
-        return jsonify({'success': False, 'error': 'User manual file not found.'}), 404
+    candidate_paths = [
+        os.path.join(base_dir, 'manuals', filename),
+        os.path.join(base_dir, filename),
+        os.path.join(os.getcwd(), 'manuals', filename),
+        os.path.join(os.getcwd(), filename),
+    ]
+    
+    found_path = None
+    for p in candidate_paths:
+        if os.path.exists(p):
+            found_path = p
+            break
+            
+    if not found_path:
+        return jsonify({'success': False, 'error': f'User manual file {filename} not found.'}), 404
         
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(found_path, 'r', encoding='utf-8') as f:
             content = f.read()
         return jsonify({'success': True, 'lang': lang, 'content': content})
     except Exception as e:
