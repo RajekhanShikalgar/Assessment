@@ -1524,10 +1524,11 @@ async function checkAuthStates() {
 
   // Check Admin
   try {
-    const aRes = await fetch('/api/admin/me');
+    const aRes = await fetch('/api/admin/me', { credentials: 'include' });
     const aData = await aRes.json();
     if (aData.authenticated && aData.admin) {
       currentAdmin = aData.admin;
+      try { localStorage.setItem('ciems_admin_session', JSON.stringify(aData.admin)); } catch(e) {}
       container.innerHTML = `
         <div class="flex items-center space-x-1.5 sm:space-x-2">
           <button onclick="navigateTo('admin-portal')" class="px-2.5 py-1 rounded-lg bg-purple-700/80 hover:bg-purple-700 text-white text-xs font-bold transition flex items-center space-x-1 border border-purple-500/40 shadow-sm" title="Open Admin Portal">
@@ -1545,8 +1546,12 @@ async function checkAuthStates() {
         showAdminSection('admin-overview');
       }
       return;
+    } else if (currentAdmin) {
+      return;
     }
-  } catch (e) {}
+  } catch (e) {
+    if (currentAdmin) return;
+  }
 
   // Neither logged in - keep container clean
   currentTeacher = null;
@@ -7862,6 +7867,7 @@ async function handleAdminLogin(e) {
   try {
     const res = await fetch('/api/admin/login', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
@@ -7872,11 +7878,12 @@ async function handleAdminLogin(e) {
     }
 
     currentAdmin = data.admin;
+    try { localStorage.setItem('ciems_admin_session', JSON.stringify(data.admin)); } catch(e) {}
     invalidateAdminCache();
-    await checkAuthStates();
     document.getElementById('admin-login-box')?.classList.add('hidden');
     document.getElementById('admin-dashboard-view')?.classList.remove('hidden');
     showAdminSection('admin-overview');
+    await checkAuthStates();
     await loadAdminDashboardStats(true);
     await loadAdminTeachers(true);
     navigateTo('admin-portal');

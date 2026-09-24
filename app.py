@@ -41,7 +41,16 @@ if valid_template_dirs:
     app.jinja_loader = jinja2.ChoiceLoader([jinja2.FileSystemLoader(d) for d in valid_template_dirs])
 app.secret_key = os.environ.get("SECRET_KEY", "rajekhan_internal_assessment_secret_key_2026")
 app.config['JSON_SORT_KEYS'] = False
+app.config['SESSION_COOKIE_NAME'] = 'ciems_session'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Crucial for cross-site / iframe / Blogger embedding
+app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(days=7)
 app.jinja_env.cache_size = 400  # Cache up to 400 compiled templates in memory
+
+@app.before_request
+def make_session_permanent():
+    session.permanent = True
 
 database.init_db()
 database.seed_database()
@@ -597,7 +606,11 @@ def admin_login():
     pwd_hash = database.hash_password(password)
     conn = database.get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM admins WHERE (username = ? OR email = ?) AND password_hash = ?", (username, username, pwd_hash))
+    cursor.execute("""
+    SELECT * FROM admins 
+    WHERE (LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?) OR (LOWER(?) = 'admin' AND (LOWER(username) = 'rajekhan.in' OR LOWER(username) = 'admin')))
+      AND password_hash = ?
+    """, (username, username, username, pwd_hash))
     user = cursor.fetchone()
     conn.close()
 
