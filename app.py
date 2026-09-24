@@ -64,9 +64,9 @@ ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'rajushikalgar@gmail.com')
 ADMIN_NAME = os.environ.get('ADMIN_NAME', 'Continuous Internal Evaluation Admin (प्रशासक)')
 SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
 SMTP_PORT = int(os.environ.get('SMTP_PORT', 587))
-SMTP_USER = os.environ.get('SMTP_USER', '')
-SMTP_PASS = os.environ.get('SMTP_PASS', '')
-APP_BASE_URL = os.environ.get('APP_BASE_URL', 'http://127.0.0.1:8000')
+SMTP_USER = os.environ.get('SMTP_USER', 'rajushikalgar@gmail.com').strip()
+SMTP_PASS = os.environ.get('SMTP_PASS', 'yigagwcazdjjqxdy').strip().replace(' ', '')
+APP_BASE_URL = os.environ.get('APP_BASE_URL', 'https://rajekhan.in')
 
 def send_email_async(to_email, subject, html_content, text_content=None, from_email=None, from_name=None):
     if not from_email:
