@@ -4417,22 +4417,13 @@ body {
             <i class="fa-solid fa-circle-check text-emerald-600"></i>
             <span data-i18n="pwd_reset_success">Password Reset Successful!</span>
           </p>
-          <div class="bg-white p-3 rounded-xl border border-emerald-100 text-slate-700 space-y-2 text-xs">
+          <div class="bg-white p-3 rounded-xl border border-emerald-100 text-slate-700 space-y-1.5 text-xs">
             <p class="flex items-center gap-1.5">
               <i class="fa-solid fa-envelope text-emerald-600"></i>
               <span><strong>नोंदणीकृत ईमेल:</strong> <span id="reset-res-email" class="font-mono font-semibold text-emerald-800"></span></span>
             </p>
-            <div class="p-2.5 rounded-lg bg-emerald-50/80 border border-emerald-300 flex items-center justify-between">
-              <div>
-                <span class="text-[10px] text-emerald-700 font-bold uppercase block">नवीन पासवर्ड (New Password):</span>
-                <span id="reset-res-pass" class="font-mono text-sm font-extrabold text-emerald-900 tracking-wider"></span>
-              </div>
-              <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('reset-res-pass').innerText); showToast('Password Copied!', 'success');" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold shadow-sm">
-                <i class="fa-regular fa-copy mr-1"></i> Copy
-              </button>
-            </div>
             <p class="text-[11px] text-slate-600 leading-relaxed" data-i18n="pwd_sent_to_email_notice">
-              हा नवीन पासवर्ड स्क्रीनवर व आपल्या नोंदणीकृत ईमेलवर पाठवला आहे. कृपया या पासवर्डने लॉगिन करून 'Change Password' द्वारे नवीन पासवर्ड सेट करा.
+              सुरक्षेच्या कारणास्तव, नवीन पासवर्ड थेट आपल्या नोंदणीकृत ईमेलवर पाठवला गेला आहे. कृपया आपला ईमेल तपासा आणि ईमेलमधील पासवर्डने लॉगिन करा.
             </p>
           </div>
           <button type="button" onclick="closeTeacherForgotPasswordModal()" class="w-full btn-3d-emerald py-2 text-white font-bold text-xs rounded-xl shadow" data-i18n="btn_back_to_login">
@@ -4478,22 +4469,13 @@ body {
             <i class="fa-solid fa-circle-check text-purple-600"></i>
             <span data-i18n="admin_pwd_reset_success">Admin Password Reset Successful!</span>
           </p>
-          <div class="bg-white p-3 rounded-xl border border-purple-100 text-slate-700 space-y-2 text-xs">
+          <div class="bg-white p-3 rounded-xl border border-purple-100 text-slate-700 space-y-1.5 text-xs">
             <p class="flex items-center gap-1.5">
               <i class="fa-solid fa-envelope text-purple-600"></i>
               <span><strong>नोंदणीकृत ईमेल:</strong> <span id="admin-reset-res-email" class="font-mono font-semibold text-purple-800"></span></span>
             </p>
-            <div class="p-2.5 rounded-lg bg-purple-50/80 border border-purple-300 flex items-center justify-between">
-              <div>
-                <span class="text-[10px] text-purple-700 font-bold uppercase block">नवीन ॲडमिन पासवर्ड (New Admin Password):</span>
-                <span id="admin-reset-res-pass" class="font-mono text-sm font-extrabold text-purple-900 tracking-wider"></span>
-              </div>
-              <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('admin-reset-res-pass').innerText); showToast('Password Copied!', 'success');" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-[11px] font-bold shadow-sm">
-                <i class="fa-regular fa-copy mr-1"></i> Copy
-              </button>
-            </div>
             <p class="text-[11px] text-slate-600 leading-relaxed" data-i18n="admin_pwd_sent_to_email_notice">
-              हा नवीन प्रशासकीय पासवर्ड स्क्रीनवर व आपल्या नोंदणीकृत ईमेलवर पाठवण्यात आला आहे. कृपया या पासवर्डने ॲडमिन पोर्टलमध्ये लॉगिन करा.
+              सुरक्षेच्या कारणास्तव, नवीन प्रशासकीय पासवर्ड थेट आपल्या नोंदणीकृत ईमेलवर पाठवण्यात आला आहे. कृपया आपला ईमेल तपासा आणि दिलेल्या पासवर्डने ॲडमिन पोर्टलमध्ये लॉगिन करा.
             </p>
           </div>
           <button type="button" onclick="closeAdminForgotPasswordModal()" class="w-full btn-3d-purple py-2 text-white font-bold text-xs rounded-xl shadow" data-i18n="btn_back_to_login">
@@ -6088,6 +6070,44 @@ body {
  * rajekhan.in - Continuous Internal Evaluation (CIE) Academic Management System
  * Comprehensive JavaScript Application Logic
  */
+
+// =========================================================================
+// UNIVERSAL AUTH INTERCEPTOR (IFRAME & CROSS-ORIGIN COMPATIBILITY)
+// =========================================================================
+(function() {
+  const _origFetch = window.fetch;
+  window.fetch = function(url, options) {
+    options = options || {};
+    options.credentials = options.credentials || 'include';
+    
+    let adminTok = null;
+    let teacherTok = null;
+    try {
+      adminTok = localStorage.getItem('ciems_admin_token');
+      teacherTok = localStorage.getItem('ciems_teacher_token');
+    } catch(e) {}
+    
+    const activeToken = adminTok || teacherTok;
+    if (activeToken) {
+      if (!options.headers) {
+        options.headers = {
+          'Authorization': 'Bearer ' + activeToken,
+          'X-Auth-Token': activeToken
+        };
+      } else if (options.headers instanceof Headers) {
+        if (!options.headers.has('Authorization')) options.headers.set('Authorization', 'Bearer ' + activeToken);
+        if (!options.headers.has('X-Auth-Token')) options.headers.set('X-Auth-Token', activeToken);
+      } else if (Array.isArray(options.headers)) {
+        options.headers.push(['Authorization', 'Bearer ' + activeToken]);
+        options.headers.push(['X-Auth-Token', activeToken]);
+      } else if (typeof options.headers === 'object') {
+        if (!options.headers['Authorization']) options.headers['Authorization'] = 'Bearer ' + activeToken;
+        if (!options.headers['X-Auth-Token']) options.headers['X-Auth-Token'] = activeToken;
+      }
+    }
+    return _origFetch.apply(this, [url, options]);
+  };
+})();
 
 // =========================================================================
 // I18N MULTI-LANGUAGE DICTIONARY (ENGLISH & MARATHI)
@@ -9551,6 +9571,9 @@ async function handleTeacherLogin(e) {
     }
 
     currentTeacher = data.teacher;
+    try {
+      if (data.token) localStorage.setItem('ciems_teacher_token', data.token);
+    } catch(e) {}
     updateTeacherProfileUI();
     await checkAuthStates();
     document.getElementById('teacher-login-box').classList.add('hidden');
@@ -9564,7 +9587,12 @@ async function handleTeacherLogin(e) {
 }
 
 async function handleTeacherLogout() {
-  await fetch('/api/teacher/logout', { method: 'POST' });
+  try {
+    await fetch('/api/teacher/logout', { method: 'POST' });
+  } catch(e) {}
+  try {
+    localStorage.removeItem('ciems_teacher_token');
+  } catch(e) {}
   currentTeacher = null;
   await checkAuthStates();
   navigateTo('landing');
@@ -10619,10 +10647,6 @@ async function handleTeacherForgotPassword(e) {
     if (resBox) {
       const emailElem = document.getElementById('reset-res-email');
       if (emailElem) emailElem.innerText = data.email_masked || email;
-      const passElem = document.getElementById('reset-res-pass');
-      if (passElem && data.temp_password) {
-        passElem.innerText = data.temp_password;
-      }
       resBox.classList.remove('hidden');
     }
 
@@ -10698,10 +10722,6 @@ async function handleAdminForgotPassword(e) {
     if (resBox) {
       const emailElem = document.getElementById('admin-reset-res-email');
       if (emailElem) emailElem.innerText = data.email_masked || identifier;
-      const passElem = document.getElementById('admin-reset-res-pass');
-      if (passElem && data.temp_password) {
-        passElem.innerText = data.temp_password;
-      }
       resBox.classList.remove('hidden');
     }
 
@@ -13972,7 +13992,10 @@ async function handleAdminLogin(e) {
     }
 
     currentAdmin = data.admin;
-    try { localStorage.setItem('ciems_admin_session', JSON.stringify(data.admin)); } catch(e) {}
+    try {
+      if (data.token) localStorage.setItem('ciems_admin_token', data.token);
+      localStorage.setItem('ciems_admin_session', JSON.stringify(data.admin));
+    } catch(e) {}
     invalidateAdminCache();
     document.getElementById('admin-login-box')?.classList.add('hidden');
     document.getElementById('admin-dashboard-view')?.classList.remove('hidden');
@@ -13992,6 +14015,10 @@ async function handleAdminLogout() {
   try {
     await fetch('/api/admin/logout', { method: 'POST' });
   } catch (e) {}
+  try {
+    localStorage.removeItem('ciems_admin_token');
+    localStorage.removeItem('ciems_admin_session');
+  } catch(e) {}
   currentAdmin = null;
   invalidateAdminCache();
   await checkAuthStates();
@@ -14029,15 +14056,15 @@ function showAdminSection(secName) {
 
   try {
     if (secName === 'admin-overview') {
-      loadAdminDashboardStats(false);
+      loadAdminDashboardStats(true);
     } else if (secName === 'admin-pending' || secName === 'admin-approved') {
-      loadAdminTeachers(false);
+      loadAdminTeachers(true);
     } else if (secName === 'admin-faculty-search') {
-      loadAdminFacultySearch(false);
+      loadAdminFacultySearch(true);
     } else if (secName === 'admin-course-cie-mapping') {
       loadAdminMasterMappingData();
     } else if (secName === 'admin-announcements') {
-      loadAdminAnnouncements(false);
+      loadAdminAnnouncements(true);
     }
   } catch (e) {
     console.error('Admin section loader error:', e);
@@ -14492,17 +14519,24 @@ async function loadAdminTeachers(forceRefresh = false) {
 
 function renderAdminTeachers(data) {
   const all = data.teachers || [];
-  const pending = data.pending_teachers || all.filter(t => t.status === 'pending');
-  const approved = data.approved_teachers || all.filter(t => t.status !== 'pending');
+  const pendingAll = data.pending_teachers || all.filter(t => t.status === 'pending' || t.extension_requested);
+  const newRequests = data.new_requests || pendingAll.filter(t => !t.extension_requested);
+  const updateRequests = data.update_requests || pendingAll.filter(t => t.extension_requested || t.approval_type === 'update');
+  const approved = data.approved_teachers || all.filter(t => t.status === 'approved' && !t.extension_requested);
+
+  const filterType = window._adminApprovalFilter || 'all';
+  let pending = pendingAll;
+  if (filterType === 'new') pending = newRequests;
+  else if (filterType === 'update') pending = updateRequests;
 
   if (document.getElementById('admin-pending-badge')) {
-    document.getElementById('admin-pending-badge').innerText = `${pending.length} Pending`;
+    document.getElementById('admin-pending-badge').innerText = `${pendingAll.length} Pending`;
   }
   if (document.getElementById('admin-approved-badge')) {
     document.getElementById('admin-approved-badge').innerText = `${approved.length} Teachers`;
   }
   if (document.getElementById('admin-pending-nav-badge')) {
-    document.getElementById('admin-pending-nav-badge').innerText = `${pending.length}`;
+    document.getElementById('admin-pending-nav-badge').innerText = `${pendingAll.length}`;
   }
   if (document.getElementById('admin-approved-nav-badge')) {
     document.getElementById('admin-approved-nav-badge').innerText = `${approved.length}`;

@@ -470,6 +470,75 @@ def send_admin_forgot_password_email(to_email, name, username, new_password):
     html = get_base_html_template("Admin Password Reset Successful", body)
     return send_email_async(to_email, subject, html, from_email=ADMIN_EMAIL, from_name=ADMIN_NAME)
 
+# ----------------- Live Email Diagnostic Test Route -----------------
+@app.route('/api/test-email', methods=['GET', 'POST'])
+def api_test_email():
+    target = request.args.get('to') or request.form.get('to') or 'rajushikalgar@gmail.com'
+    smtp_user = os.environ.get('SMTP_USER', SMTP_USER).strip()
+    smtp_pass = os.environ.get('SMTP_PASS', SMTP_PASS).strip().replace(' ', '')
+    smtp_host = os.environ.get('SMTP_HOST', SMTP_HOST)
+    smtp_port = int(os.environ.get('SMTP_PORT', SMTP_PORT))
+    
+    debug_info = {
+        'target_email': target,
+        'smtp_user': smtp_user,
+        'smtp_pass_configured': bool(smtp_pass),
+        'smtp_pass_length': len(smtp_pass) if smtp_pass else 0,
+        'smtp_host': smtp_host,
+        'smtp_port': smtp_port,
+        'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    if not smtp_pass:
+        return jsonify({
+            'success': False,
+            'error': 'SMTP_PASS environment variable is missing or empty on Render. Please configure SMTP_PASS in Render Environment Variables.',
+            'details': debug_info
+        }), 500
+        
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = 'CIEMS Direct Server Live Test Email'
+    msg['From'] = f"Continuous Internal Evaluation Admin <{smtp_user}>"
+    msg['To'] = target
+    msg.attach(MIMEText(f"This is a direct server diagnostic test email sent from CIEMS server at {debug_info['timestamp']}.\n\nIf you see this, email sending is 100% operational!", 'plain', 'utf-8'))
+    
+    # Try Port 587
+    try:
+        server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
+        server.ehlo()
+        if smtp_port in (587, 25):
+            server.starttls()
+            server.ehlo()
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_user, [target], msg.as_string())
+        server.quit()
+        return jsonify({
+            'success': True,
+            'message': f'Email successfully dispatched to {target} via Port {smtp_port} STARTTLS!',
+            'details': debug_info
+        })
+    except Exception as e587:
+        # Fallback to Port 465 SSL
+        try:
+            import ssl
+            ctx = ssl._create_unverified_context()
+            server = smtplib.SMTP_SSL(smtp_host, 465, context=ctx, timeout=10)
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, [target], msg.as_string())
+            server.quit()
+            return jsonify({
+                'success': True,
+                'message': f'Email successfully dispatched to {target} via Port 465 SSL fallback!',
+                'details': debug_info,
+                'port_587_warning': str(e587)
+            })
+        except Exception as e465:
+            return jsonify({
+                'success': False,
+                'error': f'Failed sending email: Port 587 error: ({str(e587)}), Port 465 error: ({str(e465)})',
+                'details': debug_info
+            }), 500
+
 # ----------------- Token & Session Auth Helpers -----------------
 def get_auth_serializer():
     return URLSafeTimedSerializer(app.secret_key)
