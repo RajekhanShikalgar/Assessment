@@ -2089,7 +2089,63 @@ def admin_cloud_restore_now():
         _admin_stats_cache['data'] = None
         return jsonify({'success': True, 'message': 'Google Drive वरून डेटाबेस यशस्वीरीत्या पूर्ववत केला! (Database successfully restored from Google Drive).'})
     else:
-        return jsonify({'success': False, 'error': 'Google Drive वर बॅकअप सापडला नाही किंवा कनेक्शन अयशस्वी झाले.'}), 400
+        status_info = database.check_cloud_sync_status()
+        err_msg = status_info.get('error') or (status_info.get('relay_response') or {}).get('message') or 'Google Drive वर बॅकअप सापडला नाही किंवा कनेक्शन अयशस्वी झाले.'
+        return jsonify({'success': False, 'error': f'Drive रिस्टोअर अयशस्वी: {err_msg}'}), 400
+
+@app.route('/api/admin/database/download', methods=['GET'])
+@admin_required
+def admin_database_download():
+    """Download current assessment.db directly to local machine."""
+    conn = database.get_db_connection()
+    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    conn.close()
+    if not os.path.exists(database.DB_PATH):
+        return jsonify({'error': 'Database file not found'}), 404
+    ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    return send_file(
+        database.DB_PATH,
+        as_attachment=True,
+        download_name=f"ciems_assessment_backup_{ts}.db",
+        mimetype="application/x-sqlite3"
+    )
+
+@app.route('/api/admin/database/upload', methods=['POST'])
+@admin_required
+def admin_database_upload():
+    """Upload and restore a SQLite database directly from Admin panel."""
+    if 'db_file' not in request.files:
+        return jsonify({'error': 'कोणतीही फाईल निवडलेली नाही (No file uploaded)'}), 400
+    file = request.files['db_file']
+    if not file.filename:
+        return jsonify({'error': 'फाईल नाव रिकामे आहे'}), 400
+    
+    file_bytes = file.read()
+    if file_bytes.startswith(b'\x1f\x8b'):
+        try:
+            file_bytes = gzip.decompress(file_bytes)
+        except Exception as e:
+            return jsonify({'error': f'Gzip डिकंप्रेशन त्रुटी: {e}'}), 400
+            
+    if not file_bytes.startswith(b'SQLite format 3\x00'):
+        return jsonify({'error': 'अवैध फाईल! ही वैध SQLite .db फाईल नाही.'}), 400
+        
+    with open(database.DB_PATH, 'wb') as f:
+        f.write(file_bytes)
+        
+    database.init_db()
+    database.seed_database()
+    global _admin_stats_cache
+    _admin_stats_cache['data'] = None
+    
+    # Also trigger cloud backup immediately to Google Drive
+    database.backup_database_to_cloud_async()
+    
+    return jsonify({
+        'success': True,
+        'message': f'डेटाबेस यशस्वीरीत्या रिस्टोअर झाला! ({len(file_bytes)} bytes)',
+        'size_bytes': len(file_bytes)
+    })
 
 # =========================================================================
 # 2. TEACHER REGISTRATION & AUTHENTICATION

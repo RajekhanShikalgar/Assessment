@@ -3655,6 +3655,20 @@ body {
             <span id="admin-announcements-nav-badge" class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[11px] font-bold">0</span>
           </button>
 
+          <!-- TAB 7: DATABASE & CLOUD BACKUP (डेटाबेस व क्लाउड सिंक) -->
+          <button type="button" onclick="showAdminSection('admin-database-sync')" class="a-btn-nav p-3 rounded-xl text-left flex items-center justify-between gap-2 group transition border-2 border-indigo-200/80 bg-indigo-50/40 hover:bg-indigo-100/50" data-sec="admin-database-sync">
+            <div class="flex items-center space-x-2 min-w-0">
+              <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0 shadow-sm">
+                <i class="fa-solid fa-database text-xs"></i>
+              </span>
+              <div class="min-w-0">
+                <h4 class="text-xs font-bold text-indigo-950 group-hover:text-indigo-800 leading-snug truncate">डेटाबेस व बॅकअप</h4>
+                <p class="text-[10px] text-indigo-700 truncate leading-tight mt-0.5">Drive Sync & Restore</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-900 text-[11px] font-bold"><i class="fa-solid fa-cloud-arrow-up text-[10px]"></i></span>
+          </button>
+
         </div>
 
         <!-- ========================================================================= -->
@@ -3675,6 +3689,43 @@ body {
               <button type="button" onclick="loadAdminDashboardStats()" class="btn-3d-glass px-3 py-1.5 rounded-xl text-purple-700 hover:bg-purple-50 text-xs font-bold transition flex items-center gap-1.5">
                 <i class="fa-solid fa-arrows-rotate text-purple-600"></i>
                 <span data-i18n="btn_refresh_stats">Refresh Stats</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- CLOUD SYNC & DATABASE PERSISTENCE CONTROL BAR (डेटाबेस व क्लाउड नियंत्रण) -->
+          <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white rounded-2xl p-4 sm:p-5 shadow-md border border-indigo-800/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="text-xs font-bold tracking-wide uppercase text-indigo-300">डेटाबेस नियंत्रण केंद्र (Database Hub)</span>
+                <span id="cloud-status-pill" class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-800/80 text-indigo-200 border border-indigo-700/60 font-medium">तपासत आहे...</span>
+              </div>
+              <h4 class="text-sm font-bold text-white">डेटाबेस बॅकअप, रिस्टोअर आणि क्लाउड सिंक</h4>
+              <p class="text-[11px] text-slate-300 mt-0.5">Render रीस्टार्ट झाल्यावरही डेटा सुरक्षित ठेवण्यासाठी Google Drive बॅकअप वापरा किंवा लॅपटॉपवरून थेट फाईल अपलोड करा.</p>
+            </div>
+            
+            <!-- Quick Actions Toolbar -->
+            <div class="flex flex-wrap items-center gap-2">
+              <label class="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer border border-purple-400/30" title="लॅपटॉपवरील assessment.db फाईल निवडून पोर्टलवर डेटा तत्काळ रिस्टोअर करा">
+                <i class="fa-solid fa-file-arrow-up text-purple-200"></i>
+                <span>📤 DB अपलोड (Restore)</span>
+                <input type="file" id="overview-db-upload-input" accept=".db,.sqlite3,.gz" onchange="handleAdminDbUpload(this)" class="hidden">
+              </label>
+
+              <button type="button" onclick="triggerDatabaseDownload()" class="px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 border border-emerald-500/30" title="पोर्टलवरील चालू SQLite डेटाबेस लॅपटॉपवर डाऊनलोड करा">
+                <i class="fa-solid fa-file-arrow-down text-emerald-200"></i>
+                <span>📥 DB डाऊनलोड</span>
+              </button>
+
+              <button type="button" onclick="triggerManualCloudBackup()" class="px-3 py-2 rounded-xl bg-blue-700 hover:bg-blue-600 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 border border-blue-500/30" title="डेटाबेस Google Drive वर त्वरित सेव्ह करा">
+                <i class="fa-solid fa-cloud-arrow-up text-blue-200"></i>
+                <span>☁️ Drive बॅकअप</span>
+              </button>
+
+              <button type="button" onclick="triggerManualCloudRestore()" class="px-3 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 border border-indigo-500/30" title="Google Drive वरून डेटाबेस पूर्ववत (Restore) करा">
+                <i class="fa-solid fa-cloud-arrow-down text-indigo-200"></i>
+                <span>🔄 Drive रिस्टोअर</span>
               </button>
             </div>
           </div>
@@ -3872,17 +3923,30 @@ body {
             </div>
             <div class="flex items-center gap-2">
               <span id="admin-approved-badge" class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">0 Teachers</span>
-              <button type="button" onclick="cleanAdminDummyData()" class="btn-3d-glass px-3 py-1.5 rounded-lg text-amber-800 hover:bg-amber-50 border border-amber-300 text-xs font-bold flex items-center gap-1 shadow-xs" title="सिस्टममधील सर्व जुना सॅम्पल व डमी डेटा कायमचा हटवा">
+              <button type="button" onclick="cleanAdminDummyData()" class="btn-3d-glass px-2.5 py-1.5 rounded-lg text-amber-800 hover:bg-amber-50 border border-amber-300 text-xs font-bold flex items-center gap-1 shadow-xs" title="सिस्टममधील सर्व जुना सॅम्पल व डमी डेटा कायमचा हटवा">
                 <i class="fa-solid fa-broom"></i>
-                <span>डमी डेटा हटवा (Clean Demo Data)</span>
+                <span>डमी डेटा हटवा</span>
               </button>
-              <button type="button" onclick="triggerManualCloudBackup()" class="btn-3d-glass px-3 py-1.5 rounded-lg text-blue-800 hover:bg-blue-50 border border-blue-300 text-xs font-bold flex items-center gap-1 shadow-xs" title="डेटाबेस गुगल ड्राईव्हवर त्वरित सुरक्षित सेव्ह करा">
+              <button type="button" onclick="triggerManualCloudBackup()" class="btn-3d-glass px-2.5 py-1.5 rounded-lg text-blue-800 hover:bg-blue-50 border border-blue-300 text-xs font-bold flex items-center gap-1 shadow-xs" title="डेटाबेस गुगल ड्राईव्हवर त्वरित सुरक्षित सेव्ह करा">
                 <i class="fa-solid fa-cloud-arrow-up"></i>
-                <span>Drive बॅकअप (Backup Now)</span>
+                <span>Drive बॅकअप</span>
               </button>
-              <button type="button" id="btn-bulk-delete-approved" onclick="handleBulkDeleteApproved()" class="btn-3d-glass px-3 py-1.5 rounded-lg text-rose-700 hover:bg-rose-50 border border-rose-300 text-xs font-bold flex items-center gap-1 shadow-xs">
+              <button type="button" onclick="triggerManualCloudRestore()" class="btn-3d-glass px-2.5 py-1.5 rounded-lg text-indigo-800 hover:bg-indigo-50 border border-indigo-300 text-xs font-bold flex items-center gap-1 shadow-xs" title="गुगल ड्राईव्हवरून डेटाबेस त्वरित पूर्ववत (Restore) करा">
+                <i class="fa-solid fa-cloud-arrow-down"></i>
+                <span>Drive रिस्टोअर</span>
+              </button>
+              <button type="button" onclick="triggerDatabaseDownload()" class="btn-3d-glass px-2.5 py-1.5 rounded-lg text-emerald-800 hover:bg-emerald-50 border border-emerald-300 text-xs font-bold flex items-center gap-1 shadow-xs" title="चालू SQLite डेटाबेस कॉम्प्युटरवर सेव्ह करा">
+                <i class="fa-solid fa-download"></i>
+                <span>DB डाऊनलोड</span>
+              </button>
+              <label class="btn-3d-glass px-2.5 py-1.5 rounded-lg text-purple-800 hover:bg-purple-50 border border-purple-300 text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer" title="कॉम्प्युटरवरील SQLite डेटाबेस फाईल निवडून पोर्टलवर रिस्टोअर करा">
+                <i class="fa-solid fa-upload"></i>
+                <span>DB अपलोड</span>
+                <input type="file" id="admin-db-upload-input" accept=".db,.sqlite3,.gz" onchange="handleAdminDbUpload(this)" class="hidden">
+              </label>
+              <button type="button" id="btn-bulk-delete-approved" onclick="handleBulkDeleteApproved()" class="btn-3d-glass px-2.5 py-1.5 rounded-lg text-rose-700 hover:bg-rose-50 border border-rose-300 text-xs font-bold flex items-center gap-1 shadow-xs">
                 <i class="fa-solid fa-trash-can"></i>
-                <span>Bulk Delete (एकत्रित हटवा)</span>
+                <span>Bulk Delete</span>
               </button>
             </div>
           </div>
@@ -4298,6 +4362,145 @@ body {
                 <tr><td colspan="7" class="p-6 text-center text-slate-400">Loading announcements...</td></tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- SUB-SECTION 7: DATABASE, BACKUP & CLOUD RESTORE (डेटाबेस व क्लाउड व्यवस्थापन) -->
+        <!-- ========================================================================= -->
+        <div id="a-sec-admin-database-sync" class="a-sub-section bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-200 gap-3">
+            <div>
+              <div class="inline-flex items-center space-x-2 px-2.5 py-0.5 rounded bg-blue-100 text-blue-800 text-xs font-bold mb-1">
+                <i class="fa-solid fa-database"></i>
+                <span>Database & Cloud Persistence Control</span>
+              </div>
+              <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+                <i class="fa-solid fa-server text-blue-600"></i>
+                <span>डेटाबेस, गुगल ड्राईव्ह बॅकअप व रिस्टोअर केंद्र (Database & Cloud Hub)</span>
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">Render रीस्टार्ट झाल्यावरही डेटा सुरक्षित ठेवण्यासाठी Google Drive ऑटो-सिंक वापरा किंवा कॉम्प्युटरवरून थेट फाईल अपलोड करा.</p>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="checkAdminCloudHealthUI()" class="btn-3d-glass px-3 py-1.5 rounded-xl text-blue-700 hover:bg-blue-50 text-xs font-bold transition flex items-center gap-1.5 shadow-xs">
+                <i class="fa-solid fa-arrows-rotate"></i>
+                <span>Check Status (तपासा)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- STATUS BANNER -->
+          <div id="cloud-health-banner" class="rounded-2xl p-4 border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 border-slate-200">
+            <div class="flex items-center gap-3">
+              <div id="cloud-health-icon" class="w-10 h-10 rounded-xl bg-slate-200 text-slate-600 flex items-center justify-center text-lg flex-shrink-0">
+                <i class="fa-solid fa-cloud"></i>
+              </div>
+              <div>
+                <h4 id="cloud-health-title" class="text-xs font-bold text-slate-800">क्लाउड सिंक स्थिती तपासत आहे...</h4>
+                <p id="cloud-health-desc" class="text-[11px] text-slate-500 mt-0.5">Google Apps Script व Google Drive जोडणी पडताळली जात आहे.</p>
+              </div>
+            </div>
+            <div id="cloud-health-actions"></div>
+          </div>
+
+          <!-- 4 PRIMARY ACTION CARDS -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- CARD 1: UPLOAD & RESTORE SQLITE DB -->
+            <div class="bg-gradient-to-br from-purple-50 to-indigo-50/60 border border-purple-200 rounded-2xl p-5 flex flex-col justify-between shadow-xs hover:shadow-md transition">
+              <div>
+                <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center text-lg mb-3 shadow-sm">
+                  <i class="fa-solid fa-upload"></i>
+                </div>
+                <h4 class="text-xs font-bold text-purple-950">१. कॉम्प्युटरवरून DB अपलोड</h4>
+                <p class="text-[11px] text-purple-800/80 mt-1 leading-relaxed">
+                  आपल्या लॅपटॉपवरील <strong>assessment.db</strong> फाईल निवडून २ सेकंदात सर्व शिक्षक, विद्यार्थी व सबमिशन्स थेट Render वर पूर्ववत करा.
+                </p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-purple-200/60">
+                <label class="w-full py-2.5 px-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer">
+                  <i class="fa-solid fa-file-arrow-up"></i>
+                  <span>फाईल निवडा व रिस्टोअर करा</span>
+                  <input type="file" id="tab-db-upload-input" accept=".db,.sqlite3,.gz" onchange="handleAdminDbUpload(this)" class="hidden">
+                </label>
+              </div>
+            </div>
+
+            <!-- CARD 2: DOWNLOAD SQLITE DB -->
+            <div class="bg-gradient-to-br from-emerald-50 to-teal-50/60 border border-emerald-200 rounded-2xl p-5 flex flex-col justify-between shadow-xs hover:shadow-md transition">
+              <div>
+                <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg mb-3 shadow-sm">
+                  <i class="fa-solid fa-download"></i>
+                </div>
+                <h4 class="text-xs font-bold text-emerald-950">२. चालू DB डाऊनलोड करा</h4>
+                <p class="text-[11px] text-emerald-800/80 mt-1 leading-relaxed">
+                  पोर्टलवरील सर्व चालू डेटाबेस (SQLite .db फाईल) ऑफलाइन सुरक्षेसाठी आपल्या कॉम्प्युटरवर सेव्ह करा.
+                </p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-emerald-200/60">
+                <button type="button" onclick="triggerDatabaseDownload()" class="w-full py-2.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-sm transition flex items-center justify-center gap-1.5">
+                  <i class="fa-solid fa-file-arrow-down"></i>
+                  <span>डेटाबेस डाऊनलोड (Save)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- CARD 3: DRIVE BACKUP NOW -->
+            <div class="bg-gradient-to-br from-blue-50 to-sky-50/60 border border-blue-200 rounded-2xl p-5 flex flex-col justify-between shadow-xs hover:shadow-md transition">
+              <div>
+                <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg mb-3 shadow-sm">
+                  <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <h4 class="text-xs font-bold text-blue-950">३. Google Drive बॅकअप</h4>
+                <p class="text-[11px] text-blue-800/80 mt-1 leading-relaxed">
+                  चालू डेटाबेस तत्काळ Google Drive वर सेव्ह करा. सिस्टीम तो Gzip कॉम्प्रेस करून सुरक्षित ठेवते.
+                </p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-blue-200/60">
+                <button type="button" onclick="triggerManualCloudBackup()" class="w-full py-2.5 px-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs shadow-sm transition flex items-center justify-center gap-1.5">
+                  <i class="fa-solid fa-cloud-arrow-up"></i>
+                  <span>Drive बॅकअप सुरू करा</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- CARD 4: DRIVE RESTORE NOW -->
+            <div class="bg-gradient-to-br from-indigo-50 to-violet-50/60 border border-indigo-200 rounded-2xl p-5 flex flex-col justify-between shadow-xs hover:shadow-md transition">
+              <div>
+                <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-lg mb-3 shadow-sm">
+                  <i class="fa-solid fa-cloud-arrow-down"></i>
+                </div>
+                <h4 class="text-xs font-bold text-indigo-950">४. Google Drive रिस्टोअर</h4>
+                <p class="text-[11px] text-indigo-800/80 mt-1 leading-relaxed">
+                  Google Drive वरील सर्वात नवीन बॅकअप फाईल डाऊनलोड करून पोर्टल तात्काळ पूर्ववत करा.
+                </p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-indigo-200/60">
+                <button type="button" onclick="triggerManualCloudRestore()" class="w-full py-2.5 px-3 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs shadow-sm transition flex items-center justify-center gap-1.5">
+                  <i class="fa-solid fa-rotate-left"></i>
+                  <span>Drive वरून रिस्टोअर करा</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- STEP-BY-STEP GOOGLE APPS SCRIPT SETUP INSTRUCTIONS -->
+          <div class="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-5 text-xs text-amber-900 space-y-3">
+            <div class="flex items-center gap-2 font-bold text-amber-950">
+              <i class="fa-solid fa-circle-info text-amber-600"></i>
+              <span>Google Drive ऑटो-सिंक परवानग्या सक्रिय कशा कराव्यात? (One-time Setup)</span>
+            </div>
+            <p class="text-[11px] text-amber-800 leading-relaxed">
+              गुगल ड्राईव्हवर ऑटो-बॅकअप होण्यासाठी Google Apps Script ला एकदा परवानगी (Permission Review & Allow) द्यावी लागते.
+            </p>
+            <ol class="list-decimal list-inside space-y-1.5 text-[11px] text-amber-900/90 pl-1">
+              <li>ब्राउझरमध्ये <a href="https://script.google.com" target="_blank" class="underline font-bold text-blue-700">script.google.com</a> उघडा व आपल्या प्रोजेक्टमध्ये <code>GOOGLE_APPS_SCRIPT_RELAY_CODE.js</code> मधील कोड पेस्ट करा.</li>
+              <li>वर टूलबारमध्ये फंक्शन ड्रॉपडाऊनमधून <strong><code>authorizeAndTestDrive</code></strong> निवडा आणि <strong>'Run' (चालवा)</strong> दाबा.</li>
+              <li><strong>'Review permissions'</strong> वर क्लिक करा -> आपले Google खाते निवडा -> <strong>'Advanced'</strong> -> <strong>'Go to Continuous Internal Evaluation (unsafe)'</strong> -> <strong>'Allow'</strong> दाबा.</li>
+              <li>वर उजव्या कोपऱ्यात <strong>'Deploy' -> 'Manage deployments' -> पेन्सिल आयकॉनवर क्लिक करा -> Version मध्ये 'New version' निवडा -> 'Deploy' दाबा!</strong></li>
+            </ol>
           </div>
         </div>
 
@@ -14140,6 +14343,112 @@ async function triggerManualCloudBackup() {
   }
 }
 
+async function triggerManualCloudRestore() {
+  const isMr = (currentLanguage === 'mr');
+  if (!confirm(isMr ? 'Google Drive वरील सर्वात शेवटचा सुरक्षित बॅकअप पूर्ववत (Restore) करायचा का? चालू डेटाबेस अद्ययावत होईल.' : 'Restore latest database from Google Drive?')) {
+    return;
+  }
+  showToast(isMr ? 'Google Drive वरून डेटाबेस रिस्टोअर सुरू आहे...' : 'Restoring database from Google Drive...', 'info');
+  try {
+    const res = await fetch('/api/admin/cloud-restore-now', {method: 'POST'});
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'डेटाबेस यशस्वीरीत्या पूर्ववत झाला!', 'success');
+      invalidateAdminCache();
+      if (typeof loadAdminDashboardStats === 'function') await loadAdminDashboardStats(true);
+      if (typeof loadAdminTeachers === 'function') await loadAdminTeachers(true);
+    } else {
+      showToast(data.error || 'Restore failed', 'error');
+    }
+  } catch (e) {
+    showToast('Error restoring from Google Drive: ' + e, 'error');
+  }
+}
+
+function triggerDatabaseDownload() {
+  window.open('/api/admin/database/download', '_blank');
+}
+
+async function handleAdminDbUpload(input) {
+  if (!input.files || input.files.length === 0) return;
+  const file = input.files[0];
+  const isMr = (currentLanguage === 'mr');
+  if (!confirm(isMr ? `तुम्ही निवडलेली फाईल (${file.name}) पोर्टलवर रिस्टोअर करायची का? यामुळे पोर्टलवरील सर्व डेटा पूर्ववत होईल.` : `Upload and restore database from ${file.name}?`)) {
+    input.value = '';
+    return;
+  }
+  
+  showToast(isMr ? 'डेटाबेस फाईल अपलोड आणि रिस्टोअर होत आहे...' : 'Uploading and restoring database...', 'info');
+  const formData = new FormData();
+  formData.append('db_file', file);
+  
+  try {
+    const res = await fetch('/api/admin/database/upload', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(data.message || 'डेटाबेस यशस्वीरीत्या रिस्टोअर झाला!', 'success');
+      invalidateAdminCache();
+      if (typeof loadAdminDashboardStats === 'function') await loadAdminDashboardStats(true);
+      if (typeof loadAdminTeachers === 'function') await loadAdminTeachers(true);
+    } else {
+      showToast(data.error || 'Database upload failed', 'error');
+    }
+  } catch (e) {
+    showToast('Error uploading database: ' + e, 'error');
+  } finally {
+    input.value = '';
+  }
+}
+
+async function checkAdminCloudHealthUI() {
+  const pill = document.getElementById('cloud-status-pill');
+  const banner = document.getElementById('cloud-health-banner');
+  const icon = document.getElementById('cloud-health-icon');
+  const title = document.getElementById('cloud-health-title');
+  const desc = document.getElementById('cloud-health-desc');
+
+  try {
+    const res = await fetch('/api/admin/cloud-sync-status');
+    const data = await res.json();
+    
+    if (data.configured && data.success && data.relay_response && data.relay_response.drive_connected) {
+      if (pill) {
+        pill.className = 'text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-700 text-emerald-100 border border-emerald-500 font-bold shadow-xs';
+        pill.innerText = 'Google Drive कनेक्टेड (Active)';
+      }
+      if (banner) banner.className = 'rounded-2xl p-4 border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50 border-emerald-200';
+      if (icon) {
+        icon.className = 'w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg flex-shrink-0';
+        icon.innerHTML = '<i class="fa-solid fa-cloud-check"></i>';
+      }
+      if (title) title.innerText = 'Google Drive क्लाउड सिंक १००% सक्रिय व कनेक्टेड आहे!';
+      const lastTime = data.relay_response.last_backup_time ? new Date(data.relay_response.last_backup_time).toLocaleString() : 'नवीन बॅकअप तयार करा';
+      if (desc) desc.innerText = `शेवटचा बॅकअप: ${lastTime} | Render रीस्टार्ट झाल्यावर डेटाबेस आपोआप पूर्ववत होईल.`;
+    } else {
+      const errMsg = data.error || (data.relay_response ? data.relay_response.message : 'Google Apps Script परवानगी आवश्यक आहे.');
+      if (pill) {
+        pill.className = 'text-[10px] px-2.5 py-0.5 rounded-full bg-amber-600 text-amber-50 border border-amber-400 font-bold shadow-xs animate-pulse';
+        pill.innerText = 'Drive परवानगी प्रलंबित (Action Required)';
+      }
+      if (banner) banner.className = 'rounded-2xl p-4 border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50 border-amber-200';
+      if (icon) {
+        icon.className = 'w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center text-lg flex-shrink-0';
+        icon.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+      }
+      if (title) title.innerText = 'Google Drive परवानगी देणे बाकी आहे (Permission Required)';
+      if (desc) desc.innerText = `${errMsg} — खालील मार्गदर्शिकेनुसार Google Apps Script मध्ये 'authorizeAndTestDrive' चालवून Allow करा.`;
+    }
+  } catch (e) {
+    if (pill) {
+      pill.className = 'text-[10px] px-2 py-0.5 rounded-full bg-rose-800 text-rose-200 border border-rose-600 font-bold';
+      pill.innerText = 'ऑफलाइन / तपासता आले नाही';
+    }
+  }
+}
+
 function showAdminSection(secName) {
   document.querySelectorAll('.a-sub-section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.a-btn-nav').forEach(b => b.classList.remove('active'));
@@ -14157,6 +14466,7 @@ function showAdminSection(secName) {
   try {
     if (secName === 'admin-overview') {
       loadAdminDashboardStats(true);
+      checkAdminCloudHealthUI();
     } else if (secName === 'admin-pending' || secName === 'admin-approved') {
       loadAdminTeachers(true);
     } else if (secName === 'admin-faculty-search') {
@@ -14165,6 +14475,8 @@ function showAdminSection(secName) {
       loadAdminMasterMappingData();
     } else if (secName === 'admin-announcements') {
       loadAdminAnnouncements(true);
+    } else if (secName === 'admin-database-sync') {
+      checkAdminCloudHealthUI();
     }
   } catch (e) {
     console.error('Admin section loader error:', e);

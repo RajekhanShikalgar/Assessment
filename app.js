@@ -8065,6 +8065,112 @@ async function triggerManualCloudBackup() {
   }
 }
 
+async function triggerManualCloudRestore() {
+  const isMr = (currentLanguage === 'mr');
+  if (!confirm(isMr ? 'Google Drive वरील सर्वात शेवटचा सुरक्षित बॅकअप पूर्ववत (Restore) करायचा का? चालू डेटाबेस अद्ययावत होईल.' : 'Restore latest database from Google Drive?')) {
+    return;
+  }
+  showToast(isMr ? 'Google Drive वरून डेटाबेस रिस्टोअर सुरू आहे...' : 'Restoring database from Google Drive...', 'info');
+  try {
+    const res = await fetch('/api/admin/cloud-restore-now', {method: 'POST'});
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'डेटाबेस यशस्वीरीत्या पूर्ववत झाला!', 'success');
+      invalidateAdminCache();
+      if (typeof loadAdminDashboardStats === 'function') await loadAdminDashboardStats(true);
+      if (typeof loadAdminTeachers === 'function') await loadAdminTeachers(true);
+    } else {
+      showToast(data.error || 'Restore failed', 'error');
+    }
+  } catch (e) {
+    showToast('Error restoring from Google Drive: ' + e, 'error');
+  }
+}
+
+function triggerDatabaseDownload() {
+  window.open('/api/admin/database/download', '_blank');
+}
+
+async function handleAdminDbUpload(input) {
+  if (!input.files || input.files.length === 0) return;
+  const file = input.files[0];
+  const isMr = (currentLanguage === 'mr');
+  if (!confirm(isMr ? `तुम्ही निवडलेली फाईल (${file.name}) पोर्टलवर रिस्टोअर करायची का? यामुळे पोर्टलवरील सर्व डेटा पूर्ववत होईल.` : `Upload and restore database from ${file.name}?`)) {
+    input.value = '';
+    return;
+  }
+  
+  showToast(isMr ? 'डेटाबेस फाईल अपलोड आणि रिस्टोअर होत आहे...' : 'Uploading and restoring database...', 'info');
+  const formData = new FormData();
+  formData.append('db_file', file);
+  
+  try {
+    const res = await fetch('/api/admin/database/upload', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(data.message || 'डेटाबेस यशस्वीरीत्या रिस्टोअर झाला!', 'success');
+      invalidateAdminCache();
+      if (typeof loadAdminDashboardStats === 'function') await loadAdminDashboardStats(true);
+      if (typeof loadAdminTeachers === 'function') await loadAdminTeachers(true);
+    } else {
+      showToast(data.error || 'Database upload failed', 'error');
+    }
+  } catch (e) {
+    showToast('Error uploading database: ' + e, 'error');
+  } finally {
+    input.value = '';
+  }
+}
+
+async function checkAdminCloudHealthUI() {
+  const pill = document.getElementById('cloud-status-pill');
+  const banner = document.getElementById('cloud-health-banner');
+  const icon = document.getElementById('cloud-health-icon');
+  const title = document.getElementById('cloud-health-title');
+  const desc = document.getElementById('cloud-health-desc');
+
+  try {
+    const res = await fetch('/api/admin/cloud-sync-status');
+    const data = await res.json();
+    
+    if (data.configured && data.success && data.relay_response && data.relay_response.drive_connected) {
+      if (pill) {
+        pill.className = 'text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-700 text-emerald-100 border border-emerald-500 font-bold shadow-xs';
+        pill.innerText = 'Google Drive कनेक्टेड (Active)';
+      }
+      if (banner) banner.className = 'rounded-2xl p-4 border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50 border-emerald-200';
+      if (icon) {
+        icon.className = 'w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg flex-shrink-0';
+        icon.innerHTML = '<i class="fa-solid fa-cloud-check"></i>';
+      }
+      if (title) title.innerText = 'Google Drive क्लाउड सिंक १००% सक्रिय व कनेक्टेड आहे!';
+      const lastTime = data.relay_response.last_backup_time ? new Date(data.relay_response.last_backup_time).toLocaleString() : 'नवीन बॅकअप तयार करा';
+      if (desc) desc.innerText = `शेवटचा बॅकअप: ${lastTime} | Render रीस्टार्ट झाल्यावर डेटाबेस आपोआप पूर्ववत होईल.`;
+    } else {
+      const errMsg = data.error || (data.relay_response ? data.relay_response.message : 'Google Apps Script परवानगी आवश्यक आहे.');
+      if (pill) {
+        pill.className = 'text-[10px] px-2.5 py-0.5 rounded-full bg-amber-600 text-amber-50 border border-amber-400 font-bold shadow-xs animate-pulse';
+        pill.innerText = 'Drive परवानगी प्रलंबित (Action Required)';
+      }
+      if (banner) banner.className = 'rounded-2xl p-4 border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50 border-amber-200';
+      if (icon) {
+        icon.className = 'w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center text-lg flex-shrink-0';
+        icon.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+      }
+      if (title) title.innerText = 'Google Drive परवानगी देणे बाकी आहे (Permission Required)';
+      if (desc) desc.innerText = `${errMsg} — खालील मार्गदर्शिकेनुसार Google Apps Script मध्ये 'authorizeAndTestDrive' चालवून Allow करा.`;
+    }
+  } catch (e) {
+    if (pill) {
+      pill.className = 'text-[10px] px-2 py-0.5 rounded-full bg-rose-800 text-rose-200 border border-rose-600 font-bold';
+      pill.innerText = 'ऑफलाइन / तपासता आले नाही';
+    }
+  }
+}
+
 function showAdminSection(secName) {
   document.querySelectorAll('.a-sub-section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.a-btn-nav').forEach(b => b.classList.remove('active'));
@@ -8082,6 +8188,7 @@ function showAdminSection(secName) {
   try {
     if (secName === 'admin-overview') {
       loadAdminDashboardStats(true);
+      checkAdminCloudHealthUI();
     } else if (secName === 'admin-pending' || secName === 'admin-approved') {
       loadAdminTeachers(true);
     } else if (secName === 'admin-faculty-search') {
@@ -8090,6 +8197,8 @@ function showAdminSection(secName) {
       loadAdminMasterMappingData();
     } else if (secName === 'admin-announcements') {
       loadAdminAnnouncements(true);
+    } else if (secName === 'admin-database-sync') {
+      checkAdminCloudHealthUI();
     }
   } catch (e) {
     console.error('Admin section loader error:', e);

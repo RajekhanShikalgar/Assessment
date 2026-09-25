@@ -27,6 +27,8 @@ import urllib.request
 import threading
 import time
 
+import gzip
+
 _LAST_BACKUP_TIME = 0
 _BACKUP_LOCK = threading.Lock()
 
@@ -41,16 +43,30 @@ def restore_database_from_cloud():
             data=json.dumps({'action': 'restore_db'}).encode('utf-8'),
             headers={'Content-Type': 'application/json', 'User-Agent': 'CIEMS-Portal/1.0'}
         )
-        with urllib.request.urlopen(req, timeout=25) as resp:
+        with urllib.request.urlopen(req, timeout=35) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             if data.get('status') == 'success' and data.get('found') and data.get('db_base64'):
                 db_bytes = base64.b64decode(data['db_base64'])
-                if len(db_bytes) > 1000:
+                # Auto-decompress if gzipped
+                if db_bytes.startswith(b'\x1f\x8b'):
+                    try:
+                        db_bytes = gzip.decompress(db_bytes)
+                    except Exception as gz_err:
+                        print(f"[CLOUD SYNC ERROR] Failed to decompress gzipped database: {gz_err}")
+                        return False
+                
+                # Verify SQLite format
+                if db_bytes.startswith(b'SQLite format 3\x00') and len(db_bytes) > 1000:
                     with open(DB_PATH, 'wb') as f:
                         f.write(db_bytes)
                     print(f"[CLOUD SYNC SUCCESS] Successfully restored database from Google Drive ({len(db_bytes)} bytes)!")
                     return True
-        print("[CLOUD SYNC] No previous Google Drive backup found or database already up-to-date.")
+                else:
+                    print("[CLOUD SYNC ERROR] Downloaded file is not a valid SQLite database.")
+            elif data.get('status') == 'error':
+                print(f"[CLOUD SYNC WARNING] Google Apps Script returned error: {data.get('message')}")
+            else:
+                print("[CLOUD SYNC] No previous Google Drive backup found on Google Drive.")
     except Exception as e:
         print(f"[CLOUD SYNC NOTICE] Cloud restore check: {e}")
     return False
@@ -58,7 +74,10 @@ def restore_database_from_cloud():
 def check_cloud_sync_status():
     relay_url = os.environ.get('GMAIL_RELAY_URL', '').strip()
     if not relay_url:
-        return {'configured': False, 'message': 'GMAIL_RELAY_URL पर्यावरण चल (Environment Variable) सेट केलेला नाही.'}
+        return {
+            'configured': False,
+            'message': 'GMAIL_RELAY_URL पर्यावरण चल (Environment Variable) सेट केलेला नाही.'
+        }
     try:
         req = urllib.request.Request(
             relay_url,
@@ -67,7 +86,10 @@ def check_cloud_sync_status():
         )
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode('utf-8'))
-            return {'configured': True, 'success': True, 'relay_response': data}
+            if data.get('status') == 'success':
+                return {'configured': True, 'success': True, 'relay_response': data}
+            else:
+                return {'configured': True, 'success': False, 'error': data.get('message'), 'relay_response': data}
     except Exception as e:
         return {'configured': True, 'success': False, 'error': str(e)}
 
@@ -81,11 +103,21 @@ def backup_database_to_cloud_sync():
         conn.close()
 
         with open(DB_PATH, 'rb') as f:
-            db_bytes = f.read()
-        b64_str = base64.b64encode(db_bytes).decode('utf-8')
+            raw_db_bytes = f.read()
+
+        if len(raw_db_bytes) < 100:
+            return {'success': False, 'error': 'Database file is empty or corrupted.'}
+
+        # Gzip compress to ensure super-fast transfer (e.g. 50MB -> ~4.8MB)
+        compressed_bytes = gzip.compress(raw_db_bytes, compresslevel=6)
+        b64_str = base64.b64encode(compressed_bytes).decode('utf-8')
+
         payload = {
             'action': 'backup_db',
             'db_base64': b64_str,
+            'is_compressed': True,
+            'raw_size': len(raw_db_bytes),
+            'compressed_size': len(compressed_bytes),
             'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
         req = urllib.request.Request(
@@ -93,10 +125,15 @@ def backup_database_to_cloud_sync():
             data=json.dumps(payload).encode('utf-8'),
             headers={'Content-Type': 'application/json', 'User-Agent': 'CIEMS-Portal/1.0'}
         )
-        with urllib.request.urlopen(req, timeout=35) as resp:
+        with urllib.request.urlopen(req, timeout=40) as resp:
             data = json.loads(resp.read().decode('utf-8'))
-            print(f"[CLOUD BACKUP SYNC SUCCESS] Database saved to Google Drive ({len(db_bytes)} bytes)!")
-            return {'success': True, 'relay_response': data, 'size_bytes': len(db_bytes)}
+            if data.get('status') == 'success':
+                print(f"[CLOUD BACKUP SYNC SUCCESS] Database saved to Google Drive (Raw: {len(raw_db_bytes)} bytes, Compressed: {len(compressed_bytes)} bytes)!")
+                return {'success': True, 'relay_response': data, 'raw_size': len(raw_db_bytes), 'size_bytes': len(compressed_bytes)}
+            else:
+                err_msg = data.get('message') or str(data)
+                print(f"[CLOUD BACKUP SYNC NOTICE] Google Apps Script returned error: {err_msg}")
+                return {'success': False, 'error': err_msg}
     except Exception as e:
         print(f"[CLOUD BACKUP SYNC ERROR] {e}")
         return {'success': False, 'error': str(e)}
