@@ -90,6 +90,50 @@ def send_email_async(to_email, subject, html_content, text_content=None, from_em
     thread.start()
     return True
 
+def _send_email_http_relay(relay_url, to_email, subject, html_content, text_content=None, from_name=None):
+    import urllib.request
+    import json
+    payload = {
+        'to': to_email,
+        'subject': subject,
+        'html': html_content,
+        'text': text_content or '',
+        'from_name': from_name or ADMIN_NAME
+    }
+    data = json.dumps(payload).encode('utf-8')
+    req = urllib.request.Request(
+        relay_url,
+        data=data,
+        headers={'Content-Type': 'application/json', 'User-Agent': 'CIEMS-Portal/1.0'}
+    )
+    with urllib.request.urlopen(req, timeout=15) as response:
+        return response.read().decode('utf-8')
+
+def _send_email_brevo_api(brevo_api_key, to_email, subject, html_content, text_content=None, from_email=None, from_name=None):
+    import urllib.request
+    import json
+    sender_email = from_email or os.environ.get('SMTP_USER', SMTP_USER).strip() or ADMIN_EMAIL
+    payload = {
+        'sender': {'name': from_name or ADMIN_NAME, 'email': sender_email},
+        'to': [{'email': to_email}],
+        'subject': subject,
+        'htmlContent': html_content
+    }
+    if text_content:
+        payload['textContent'] = text_content
+    data = json.dumps(payload).encode('utf-8')
+    req = urllib.request.Request(
+        'https://api.brevo.com/v3/smtp/email',
+        data=data,
+        headers={
+            'accept': 'application/json',
+            'api-key': brevo_api_key,
+            'content-type': 'application/json'
+        }
+    )
+    with urllib.request.urlopen(req, timeout=15) as response:
+        return response.read().decode('utf-8')
+
 def _send_email_worker(to_email, subject, html_content, text_content=None, from_email=None, from_name=None):
     if not to_email:
         return False
@@ -98,6 +142,52 @@ def _send_email_worker(to_email, subject, html_content, text_content=None, from_
     if not from_name:
         from_name = ADMIN_NAME
 
+    gmail_relay_url = os.environ.get('GMAIL_RELAY_URL', '').strip()
+    brevo_api_key = os.environ.get('BREVO_API_KEY', '').strip()
+    resend_api_key = os.environ.get('RESEND_API_KEY', '').strip()
+
+    # 1. Preferred for Render: Google Apps Script Web App HTTPS Relay (Port 443, No SMTP Block)
+    if gmail_relay_url:
+        try:
+            res = _send_email_http_relay(gmail_relay_url, to_email, subject, html_content, text_content, from_name)
+            print(f"[EMAIL DELIVERED (Google Apps Script HTTPS Relay)] -> To: {to_email} | Response: {res}")
+            return True
+        except Exception as e_relay:
+            print(f"[EMAIL ERROR (Google Apps Script HTTPS Relay)] -> {e_relay}")
+
+    # 2. Alternative HTTPS API: Brevo
+    if brevo_api_key:
+        try:
+            res = _send_email_brevo_api(brevo_api_key, to_email, subject, html_content, text_content, from_email, from_name)
+            print(f"[EMAIL DELIVERED (Brevo HTTPS API)] -> To: {to_email} | Response: {res}")
+            return True
+        except Exception as e_brevo:
+            print(f"[EMAIL ERROR (Brevo HTTPS API)] -> {e_brevo}")
+
+    # 3. Alternative HTTPS API: Resend
+    if resend_api_key:
+        try:
+            import urllib.request, json
+            payload = {
+                'from': f"{from_name} <onboarding@resend.dev>",
+                'to': [to_email],
+                'subject': subject,
+                'html': html_content
+            }
+            if text_content:
+                payload['text'] = text_content
+            req = urllib.request.Request(
+                'https://api.resend.com/emails',
+                data=json.dumps(payload).encode('utf-8'),
+                headers={'Authorization': f'Bearer {resend_api_key}', 'Content-Type': 'application/json'}
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                print(f"[EMAIL DELIVERED (Resend HTTPS API)] -> To: {to_email} | Response: {resp.read().decode('utf-8')}")
+                return True
+        except Exception as e_resend:
+            print(f"[EMAIL ERROR (Resend HTTPS API)] -> {e_resend}")
+
+    # 4. Standard Direct SMTP Fallback (Port 587 STARTTLS / Port 465 SSL)
     smtp_user = os.environ.get('SMTP_USER', SMTP_USER).strip()
     smtp_pass = os.environ.get('SMTP_PASS', SMTP_PASS).strip().replace(' ', '')
     smtp_host = os.environ.get('SMTP_HOST', SMTP_HOST)
@@ -113,11 +203,10 @@ def _send_email_worker(to_email, subject, html_content, text_content=None, from_
     msg.attach(MIMEText(html_content, 'html', 'utf-8'))
 
     if not smtp_user or not smtp_pass:
-        print(f"\n[EMAIL DISPATCH (NO SMTP CREDENTIALS)] -> From: {from_name} <{sender_addr}> | To: {to_email} | Subject: {subject}")
-        print(f"[EMAIL DISPATCH] -> Login credentials / notification dispatched to: {to_email}.\n")
+        print(f"\n[EMAIL DISPATCH (NO SMTP/RELAY CREDENTIALS)] -> From: {from_name} <{sender_addr}> | To: {to_email} | Subject: {subject}")
+        print(f"[EMAIL DISPATCH] -> Login credentials / notification logged for: {to_email}.\n")
         return True
 
-    # Try Primary Connection (Port 587 STARTTLS)
     try:
         server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
         server.ehlo()
@@ -131,7 +220,6 @@ def _send_email_worker(to_email, subject, html_content, text_content=None, from_
         return True
     except Exception as e1:
         print(f"[EMAIL WARNING (Port {smtp_port})] -> Primary dispatch failed: {e1}. Attempting SSL Port 465 fallback...")
-        # Fallback to Port 465 SSL
         try:
             import ssl
             ctx = ssl._create_unverified_context()
@@ -479,8 +567,15 @@ def api_test_email():
     smtp_host = os.environ.get('SMTP_HOST', SMTP_HOST)
     smtp_port = int(os.environ.get('SMTP_PORT', SMTP_PORT))
     
+    gmail_relay_url = os.environ.get('GMAIL_RELAY_URL', '').strip()
+    brevo_api_key = os.environ.get('BREVO_API_KEY', '').strip()
+    resend_api_key = os.environ.get('RESEND_API_KEY', '').strip()
+
     debug_info = {
         'target_email': target,
+        'gmail_relay_configured': bool(gmail_relay_url),
+        'brevo_api_configured': bool(brevo_api_key),
+        'resend_api_configured': bool(resend_api_key),
         'smtp_user': smtp_user,
         'smtp_pass_configured': bool(smtp_pass),
         'smtp_pass_length': len(smtp_pass) if smtp_pass else 0,
@@ -488,11 +583,60 @@ def api_test_email():
         'smtp_port': smtp_port,
         'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
-    
+
+    # Test 1: Google Apps Script HTTPS Relay
+    if gmail_relay_url:
+        try:
+            res = _send_email_http_relay(
+                gmail_relay_url,
+                target,
+                'CIEMS Direct Google Apps Script HTTPS Test Email',
+                f"This is a direct HTTPS test email sent from CIEMS server via Google Apps Script Web App Relay at {debug_info['timestamp']}.\n\nIf you see this, email sending is 100% operational on Render!",
+                from_name="Continuous Internal Evaluation Admin"
+            )
+            return jsonify({
+                'success': True,
+                'channel': 'Google Apps Script HTTPS Relay (Port 443)',
+                'message': f'Email successfully dispatched to {target} via Google Apps Script Relay!',
+                'relay_response': res,
+                'details': debug_info
+            })
+        except Exception as e_relay:
+            return jsonify({
+                'success': False,
+                'channel': 'Google Apps Script HTTPS Relay',
+                'error': f'Failed sending via Google Apps Script HTTPS Relay: {str(e_relay)}',
+                'details': debug_info
+            }), 500
+
+    # Test 2: Brevo HTTPS API
+    if brevo_api_key:
+        try:
+            res = _send_email_brevo_api(
+                brevo_api_key,
+                target,
+                'CIEMS Brevo HTTPS API Test Email',
+                f"This is a direct HTTPS test email sent from CIEMS server via Brevo API at {debug_info['timestamp']}.\n\nIf you see this, email sending is 100% operational on Render!"
+            )
+            return jsonify({
+                'success': True,
+                'channel': 'Brevo HTTPS API (Port 443)',
+                'message': f'Email successfully dispatched to {target} via Brevo API!',
+                'brevo_response': res,
+                'details': debug_info
+            })
+        except Exception as e_brevo:
+            return jsonify({
+                'success': False,
+                'channel': 'Brevo HTTPS API',
+                'error': f'Failed sending via Brevo HTTPS API: {str(e_brevo)}',
+                'details': debug_info
+            }), 500
+
     if not smtp_pass:
         return jsonify({
             'success': False,
-            'error': 'SMTP_PASS environment variable is missing or empty on Render. Please configure SMTP_PASS in Render Environment Variables.',
+            'error': 'No email delivery method configured. Please set GMAIL_RELAY_URL or BREVO_API_KEY or SMTP_PASS in Render Environment Variables.',
             'details': debug_info
         }), 500
         
