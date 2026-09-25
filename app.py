@@ -98,34 +98,52 @@ def _send_email_worker(to_email, subject, html_content, text_content=None, from_
     if not from_name:
         from_name = ADMIN_NAME
 
+    smtp_user = os.environ.get('SMTP_USER', SMTP_USER).strip()
+    smtp_pass = os.environ.get('SMTP_PASS', SMTP_PASS).strip().replace(' ', '')
+    smtp_host = os.environ.get('SMTP_HOST', SMTP_HOST)
+    smtp_port = int(os.environ.get('SMTP_PORT', SMTP_PORT))
+
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject
-    msg['From'] = f"{from_name} <{from_email}>"
+    sender_addr = smtp_user if smtp_user else from_email
+    msg['From'] = f"{from_name} <{sender_addr}>"
     msg['To'] = to_email
     if text_content:
         msg.attach(MIMEText(text_content, 'plain', 'utf-8'))
     msg.attach(MIMEText(html_content, 'html', 'utf-8'))
 
-    if not SMTP_USER or not SMTP_PASS:
-        print(f"\n[EMAIL DISPATCH] -> From: {from_name} <{from_email}> | To: {to_email} | Subject: {subject}")
+    if not smtp_user or not smtp_pass:
+        print(f"\n[EMAIL DISPATCH (NO SMTP CREDENTIALS)] -> From: {from_name} <{sender_addr}> | To: {to_email} | Subject: {subject}")
         print(f"[EMAIL DISPATCH] -> Login credentials / notification dispatched to: {to_email}.\n")
         return True
 
+    # Try Primary Connection (Port 587 STARTTLS)
     try:
-        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10)
+        server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
         server.ehlo()
-        if SMTP_PORT in (587, 25):
+        if smtp_port in (587, 25):
             server.starttls()
             server.ehlo()
-        server.login(SMTP_USER, SMTP_PASS)
-        sender_email = SMTP_USER if SMTP_USER else from_email
-        server.sendmail(sender_email, [to_email], msg.as_string())
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(sender_addr, [to_email], msg.as_string())
         server.quit()
-        print(f"[EMAIL DELIVERED] -> Email delivered successfully from {from_email} to {to_email}")
+        print(f"[EMAIL DELIVERED (Port {smtp_port})] -> Email delivered successfully from {sender_addr} to {to_email}")
         return True
-    except Exception as e:
-        print(f"[EMAIL ERROR] -> Failed sending from {from_email} to {to_email}: {e}")
-        return False
+    except Exception as e1:
+        print(f"[EMAIL WARNING (Port {smtp_port})] -> Primary dispatch failed: {e1}. Attempting SSL Port 465 fallback...")
+        # Fallback to Port 465 SSL
+        try:
+            import ssl
+            ctx = ssl._create_unverified_context()
+            server = smtplib.SMTP_SSL(smtp_host, 465, context=ctx, timeout=10)
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(sender_addr, [to_email], msg.as_string())
+            server.quit()
+            print(f"[EMAIL DELIVERED (Port 465 SSL)] -> Email delivered successfully via fallback to {to_email}")
+            return True
+        except Exception as e2:
+            print(f"[EMAIL ERROR] -> Failed sending from {sender_addr} to {to_email}: Primary error ({e1}), SSL error ({e2})")
+            return False
 
 def get_base_html_template(title, body_content):
     return f"""<!DOCTYPE html>
@@ -186,6 +204,43 @@ def get_base_html_template(title, body_content):
   </div>
 </body>
 </html>"""
+
+def send_teacher_registration_received_email(to_email, name, teacher_code, college_name=None, subject_name=None):
+    subject = f"नोंदणी अर्ज प्राप्त — Faculty Registration Received: {teacher_code} (CIE Portal)"
+    body = f"""
+    <div class="greeting">आदरणीय / Respected {name},</div>
+    <div class="lead-text">
+      आपला सातत्यपूर्ण अंतर्गत मूल्यमापन प्रणालीमधील (CIE Portal) शिक्षक नोंदणी अर्ज यशस्वीरीत्या प्राप्त झाला आहे.
+      <div class="lead-text-en">Your faculty registration application has been successfully submitted and is currently under verification by the Administrator.</div>
+    </div>
+    
+    <div class="cred-card">
+      <div class="cred-header">
+        📋 अर्जाचा तपशील / Registration Details
+      </div>
+      <table class="cred-table">
+        <tr>
+          <td class="cred-label">शिक्षक कोड<span class="cred-label-sub">Teacher Code</span></td>
+          <td class="cred-val"><span class="badge-code">{teacher_code}</span></td>
+        </tr>
+        <tr>
+          <td class="cred-label">नोंदणीकृत ईमेल<span class="cred-label-sub">Registered Email</span></td>
+          <td class="cred-val">{to_email}</td>
+        </tr>
+        <tr>
+          <td class="cred-label">सद्यस्थिती<span class="cred-label-sub">Current Status</span></td>
+          <td class="cred-val" style="color: #b45309; font-weight: bold;">⏳ प्रशासकीय मान्यतेसाठी प्रलंबित (Pending Admin Approval)</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="instructions">
+      <strong>📌 पुढील प्रक्रिया / Next Steps:</strong><br>
+      • कॉलेज प्रशासकांद्वारे (Admin Approval) आपला अर्ज मंजूर झाल्यानंतर आपला <strong>लॉगिन पासवर्ड थेट याच ईमेलवर</strong> पाठवला जाईल.<br>
+      <span class="instructions-en">(Upon verification and approval by the administrator, your official login password will be dispatched to this email.)</span>
+    </div>"""
+    html = get_base_html_template("Teacher Registration Received", body)
+    return send_email_async(to_email, subject, html, from_email=ADMIN_EMAIL, from_name=ADMIN_NAME)
 
 def send_teacher_approval_email(to_email, name, teacher_code, password, college_name=None, subject_name=None, validity_end=None):
     subject = f"शिक्षक नोंदणी मंजूर — Faculty Registration Approved: {teacher_code} (CIE Portal)"
@@ -1759,6 +1814,14 @@ def teacher_register():
     new_id = cursor.lastrowid
     conn.commit()
     conn.close()
+
+    send_teacher_registration_received_email(
+        to_email=email,
+        name=name,
+        teacher_code=teacher_code,
+        college_name=college_name,
+        subject_name=final_subject
+    )
 
     return jsonify({
         'message': 'Registration submitted successfully! Waiting for Administrator approval.',
