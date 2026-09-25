@@ -782,20 +782,19 @@ def generate_assessment_pdf(sub_data, eval_data=None, hide_marks=True):
     qr_data_lines = [
         "CIEMS VERIFIED ASSESSMENT RECORD",
         "----------------------------------------",
-        f"Submission ID: {submission_id}",
         f"Student: {student_name}",
         f"PRN: {prn} | Roll No: {roll_no}",
-        f"Email: {student_email}" if student_email else None,
         f"Class: {class_name} ({semester})",
-        f"Subject: {subject_name} (Code: {course_code})",
+        f"Subject: {subject_name} ({course_code})",
         f"Assessment: {assessment_type_name}",
         f"Topic: {topic}",
         f"Faculty: {teacher_name}",
         f"College: {college_name}",
-        f"Status: {status}",
+        f"Submission ID: {submission_id}",
+        f"Status: {status.upper() if status else 'VERIFIED'}",
         f"Date: {submitted_at}",
         "----------------------------------------",
-        "Official Portal: https://www.rajekhan.in"
+        "CIEMS Academic Evaluation System"
     ]
     qr_full_text = "\n".join([line for line in qr_data_lines if line])
     qr_img = None
@@ -812,7 +811,7 @@ def generate_assessment_pdf(sub_data, eval_data=None, hide_marks=True):
         qr_io = io.BytesIO()
         img.save(qr_io, format="PNG")
         qr_io.seek(0)
-        qr_img = RLImage(qr_io, width=64, height=64)
+        qr_img = RLImage(qr_io, width=72, height=72)
     except Exception:
         qr_img = None
 

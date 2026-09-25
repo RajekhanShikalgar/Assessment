@@ -7612,65 +7612,105 @@ async function checkAuthStates() {
   const container = document.getElementById('auth-actions-container');
   if (!container) return;
 
-  // Check Teacher
+  // Strict Tab/Window Session Isolation:
+  // sessionStorage is destroyed when a tab/window is closed.
+  // If neither token is present, the user has closed the tab or logged out.
+  let adminTok = null;
+  let teacherTok = null;
   try {
-    const tRes = await fetch('/api/teacher/me');
-    const tData = await tRes.json();
-    if (tData.authenticated && tData.teacher) {
-      currentTeacher = tData.teacher;
-      updateTeacherProfileUI();
-      container.innerHTML = `
-        <div class="flex items-center space-x-1.5 sm:space-x-2">
-          <button onclick="navigateTo('teacher-portal')" class="px-2.5 py-1 rounded-lg bg-emerald-700/80 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center space-x-1 border border-emerald-500/40 shadow-sm" title="Open Teacher Portal">
-            <i class="fa-solid fa-chalkboard-user text-emerald-300"></i>
-            <span class="hidden sm:inline">${currentTeacher.name}</span>
-          </button>
-          <button onclick="handleTeacherLogout()" class="btn-3d-glass px-2.5 py-1 rounded-lg text-red-700 text-xs font-bold shadow-sm">Logout</button>
-        </div>
-      `;
-      const tLoginBox = document.getElementById('teacher-login-box');
-      const tDashView = document.getElementById('teacher-dashboard-view');
-      if (tLoginBox && tDashView) {
-        tLoginBox.classList.add('hidden');
-        tDashView.classList.remove('hidden');
-        loadTeacherDashboardStats();
-      }
-      return;
-    }
+    adminTok = sessionStorage.getItem('ciems_admin_token');
+    teacherTok = sessionStorage.getItem('ciems_teacher_token');
   } catch (e) {}
 
-  // Check Admin
-  try {
-    const aRes = await fetch('/api/admin/me', { credentials: 'include' });
-    const aData = await aRes.json();
-    if (aData.authenticated && aData.admin) {
-      currentAdmin = aData.admin;
-      try { 
-        sessionStorage.setItem('ciems_admin_session', JSON.stringify(aData.admin)); 
-        localStorage.removeItem('ciems_admin_session');
-      } catch(e) {}
-      container.innerHTML = `
-        <div class="flex items-center space-x-1.5 sm:space-x-2">
-          <button onclick="navigateTo('admin-portal')" class="px-2.5 py-1 rounded-lg bg-purple-700/80 hover:bg-purple-700 text-white text-xs font-bold transition flex items-center space-x-1 border border-purple-500/40 shadow-sm" title="Open Admin Portal">
-            <i class="fa-solid fa-shield-halved text-purple-300"></i>
-            <span class="hidden sm:inline">Admin</span>
-          </button>
-          <button onclick="handleAdminLogout()" class="btn-3d-glass px-2.5 py-1 rounded-lg text-red-700 text-xs font-bold shadow-sm">Logout</button>
-        </div>
-      `;
-      const aLoginBox = document.getElementById('admin-login-box');
-      const aDashView = document.getElementById('admin-dashboard-view');
-      if (aLoginBox && aDashView) {
-        aLoginBox.classList.add('hidden');
-        aDashView.classList.remove('hidden');
-        showAdminSection('admin-overview');
+  if (!adminTok && !teacherTok) {
+    currentTeacher = null;
+    currentAdmin = null;
+    container.innerHTML = '';
+
+    const tLoginBox = document.getElementById('teacher-login-box');
+    const tDashView = document.getElementById('teacher-dashboard-view');
+    if (tLoginBox) tLoginBox.classList.remove('hidden');
+    if (tDashView) tDashView.classList.add('hidden');
+
+    const aLoginBox = document.getElementById('admin-login-box');
+    const aDashView = document.getElementById('admin-dashboard-view');
+    if (aLoginBox) aLoginBox.classList.remove('hidden');
+    if (aDashView) aDashView.classList.add('hidden');
+
+    // Invalidate any lingering server-side cookie in the background
+    try {
+      fetch('/api/admin/logout', { method: 'POST' });
+      fetch('/api/teacher/logout', { method: 'POST' });
+    } catch (e) {}
+    return;
+  }
+
+  // Check Teacher only if teacherTok exists in sessionStorage
+  if (teacherTok) {
+    try {
+      const tRes = await fetch('/api/teacher/me');
+      const tData = await tRes.json();
+      if (tData.authenticated && tData.teacher) {
+        currentTeacher = tData.teacher;
+        updateTeacherProfileUI();
+        container.innerHTML = `
+          <div class="flex items-center space-x-1.5 sm:space-x-2">
+            <button onclick="navigateTo('teacher-portal')" class="px-2.5 py-1 rounded-lg bg-emerald-700/80 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center space-x-1 border border-emerald-500/40 shadow-sm" title="Open Teacher Portal">
+              <i class="fa-solid fa-chalkboard-user text-emerald-300"></i>
+              <span class="hidden sm:inline">${currentTeacher.name}</span>
+            </button>
+            <button onclick="handleTeacherLogout()" class="btn-3d-glass px-2.5 py-1 rounded-lg text-red-700 text-xs font-bold shadow-sm">Logout</button>
+          </div>
+        `;
+        const tLoginBox = document.getElementById('teacher-login-box');
+        const tDashView = document.getElementById('teacher-dashboard-view');
+        if (tLoginBox && tDashView) {
+          tLoginBox.classList.add('hidden');
+          tDashView.classList.remove('hidden');
+          loadTeacherDashboardStats();
+        }
+        return;
+      } else {
+        sessionStorage.removeItem('ciems_teacher_token');
+        teacherTok = null;
       }
-      return;
-    } else if (currentAdmin) {
-      return;
-    }
-  } catch (e) {
-    if (currentAdmin) return;
+    } catch (e) {}
+  }
+
+  // Check Admin only if adminTok exists in sessionStorage
+  if (adminTok) {
+    try {
+      const aRes = await fetch('/api/admin/me', { credentials: 'include' });
+      const aData = await aRes.json();
+      if (aData.authenticated && aData.admin) {
+        currentAdmin = aData.admin;
+        try { 
+          sessionStorage.setItem('ciems_admin_session', JSON.stringify(aData.admin)); 
+          localStorage.removeItem('ciems_admin_session');
+        } catch(e) {}
+        container.innerHTML = `
+          <div class="flex items-center space-x-1.5 sm:space-x-2">
+            <button onclick="navigateTo('admin-portal')" class="px-2.5 py-1 rounded-lg bg-purple-700/80 hover:bg-purple-700 text-white text-xs font-bold transition flex items-center space-x-1 border border-purple-500/40 shadow-sm" title="Open Admin Portal">
+              <i class="fa-solid fa-shield-halved text-purple-300"></i>
+              <span class="hidden sm:inline">Admin</span>
+            </button>
+            <button onclick="handleAdminLogout()" class="btn-3d-glass px-2.5 py-1 rounded-lg text-red-700 text-xs font-bold shadow-sm">Logout</button>
+          </div>
+        `;
+        const aLoginBox = document.getElementById('admin-login-box');
+        const aDashView = document.getElementById('admin-dashboard-view');
+        if (aLoginBox && aDashView) {
+          aLoginBox.classList.add('hidden');
+          aDashView.classList.remove('hidden');
+          showAdminSection('admin-overview');
+        }
+        return;
+      } else {
+        sessionStorage.removeItem('ciems_admin_token');
+        sessionStorage.removeItem('ciems_admin_session');
+        adminTok = null;
+      }
+    } catch (e) {}
   }
 
   // Neither logged in - keep container clean

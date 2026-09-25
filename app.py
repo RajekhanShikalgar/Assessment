@@ -769,11 +769,11 @@ def extract_request_token():
     )
 
 def get_current_teacher():
-    t_id = session.get('teacher_id')
-    if not t_id:
-        tok_data = decode_auth_token(extract_request_token())
-        if tok_data and tok_data.get('role') == 'teacher':
-            t_id = tok_data.get('id')
+    tok_data = decode_auth_token(extract_request_token())
+    if tok_data and tok_data.get('role') == 'teacher':
+        t_id = tok_data.get('id')
+    else:
+        t_id = session.get('teacher_id')
 
     if t_id:
         conn = database.get_db_connection()
@@ -786,11 +786,11 @@ def get_current_teacher():
     return None
 
 def get_current_admin():
-    a_id = session.get('admin_id')
-    if not a_id:
-        tok_data = decode_auth_token(extract_request_token())
-        if tok_data and tok_data.get('role') == 'admin':
-            a_id = tok_data.get('id')
+    tok_data = decode_auth_token(extract_request_token())
+    if tok_data and tok_data.get('role') == 'admin':
+        a_id = tok_data.get('id')
+    else:
+        a_id = session.get('admin_id')
 
     if a_id:
         conn = database.get_db_connection()
@@ -980,7 +980,11 @@ def get_user_manual():
 @app.route('/api/admin/logout', methods=['POST'])
 def admin_logout():
     session.clear()
-    return jsonify({'success': True, 'message': 'Admin logged out successfully.'})
+    resp = jsonify({'success': True, 'message': 'Admin logged out successfully.'})
+    cookie_name = app.config.get('SESSION_COOKIE_NAME', 'ciems_session')
+    resp.delete_cookie(cookie_name, path='/', samesite='None', secure=True)
+    resp.delete_cookie('session', path='/')
+    return resp
 
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():
@@ -2339,7 +2343,11 @@ def teacher_me():
 @app.route('/api/teacher/logout', methods=['POST'])
 def teacher_logout():
     session.clear()
-    return jsonify({'message': 'Logged out successfully'})
+    resp = jsonify({'message': 'Logged out successfully'})
+    cookie_name = app.config.get('SESSION_COOKIE_NAME', 'ciems_session')
+    resp.delete_cookie(cookie_name, path='/', samesite='None', secure=True)
+    resp.delete_cookie('session', path='/')
+    return resp
 
 # =========================================================================
 # 3. UNIFIED TEACHER WORKFLOW APIS (MAPPING, ROSTERS, ASSESSMENTS, INVITES)
@@ -2348,7 +2356,8 @@ def teacher_logout():
 @app.route('/api/teacher/dashboard-stats')
 @teacher_required
 def get_teacher_dashboard_stats():
-    teacher_id = session['teacher_id']
+    teacher = get_current_teacher()
+    teacher_id = teacher['id'] if teacher else session.get('teacher_id')
     conn = database.get_db_connection()
     cursor = conn.cursor()
     
