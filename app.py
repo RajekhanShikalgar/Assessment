@@ -59,10 +59,28 @@ def handle_options_and_session():
         res.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Auth-Token, X-Requested-With, Accept, Origin'
         res.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
         return res
-    session.permanent = True
+    session.permanent = False
+
+# ----------------- Automatic Cloud Sync & Database Initialization -----------------
+try:
+    database.restore_database_from_cloud()
+except Exception as _e_rest:
+    print("[CLOUD SYNC STARTUP NOTICE]", _e_rest)
 
 database.init_db()
 database.seed_database()
+
+# Periodic Background Cloud Backup (Every 10 minutes)
+def _periodic_cloud_backup():
+    while True:
+        try:
+            time.sleep(300)
+            database.backup_database_to_cloud_async()
+        except Exception:
+            pass
+
+_backup_bg_thread = threading.Thread(target=_periodic_cloud_backup, daemon=True)
+_backup_bg_thread.start()
 
 # ----------------- Server-Side In-Memory Cache -----------------
 _admin_stats_cache = {'data': None, 'ts': 0}
@@ -682,6 +700,43 @@ def api_test_email():
                 'error': f'Failed sending email: Port 587 error: ({str(e587)}), Port 465 error: ({str(e465)})',
                 'details': debug_info
             }), 500
+
+# ----------------- Live Cloud Database Persistence Diagnostic Routes -----------------
+@app.route('/api/cloud-sync/status', methods=['GET'])
+def api_cloud_sync_status():
+    relay_url = os.environ.get('GMAIL_RELAY_URL', '').strip()
+    db_size = os.path.getsize(database.DB_PATH) if os.path.exists(database.DB_PATH) else 0
+    return jsonify({
+        'cloud_relay_configured': bool(relay_url),
+        'db_path': database.DB_PATH,
+        'db_size_bytes': db_size,
+        'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    })
+
+@app.route('/api/cloud-sync/backup', methods=['GET', 'POST'])
+def api_cloud_sync_backup():
+    try:
+        database._backup_worker()
+        return jsonify({
+            'success': True,
+            'message': 'Database snapshot successfully pushed and permanently preserved in Google Drive!',
+            'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/cloud-sync/restore', methods=['GET', 'POST'])
+def api_cloud_sync_restore():
+    try:
+        restored = database.restore_database_from_cloud()
+        return jsonify({
+            'success': True,
+            'restored': restored,
+            'message': 'Database restored from Google Drive!' if restored else 'No remote backup found or already up to date.',
+            'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ----------------- Token & Session Auth Helpers -----------------
 def get_auth_serializer():
@@ -1615,6 +1670,7 @@ def admin_direct_approve_teacher(teacher_id):
         conn.close()
 
         _admin_stats_cache['data'] = None
+        database.backup_database_to_cloud_async()
 
         if t_dict.get('email'):
             send_teacher_approval_email(
@@ -1924,6 +1980,7 @@ def admin_teacher_action():
                     validity_end=val_end
                 )
 
+            database.backup_database_to_cloud_async()
             return jsonify({
                 'message': f'Teacher {t_dict["name"]} approved successfully!',
                 'teacher_code': t_dict['teacher_code'],
@@ -1956,6 +2013,79 @@ def admin_teacher_action():
 
     conn.close()
     return jsonify({'error': 'Invalid action.'}), 400
+
+@app.route('/api/admin/clean-dummy-data', methods=['GET', 'POST'])
+@admin_required
+def admin_clean_dummy_data():
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+    dummy_cond = "email IN ('patil@college.edu', 'rajekhan@rajekhan.in') OR teacher_code IN ('TCH-RAJ-01', 'TCH-ECO-02') OR name LIKE '%Suresh Mohan Patil%' OR college_name LIKE '%Chhatrapati Shahu Arts College%'"
+    cursor.execute(f"""
+    DELETE FROM evaluations WHERE submission_id IN (
+        SELECT id FROM submissions WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})
+    )
+    """)
+    cursor.execute(f"""
+    DELETE FROM audit_logs WHERE submission_id IN (
+        SELECT id FROM submissions WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})
+    )
+    """)
+    cursor.execute(f"DELETE FROM submissions WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM created_assessments WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM teacher_assignment_mappings WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM teacher_subjects WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM teacher_rosters WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM teacher_study_materials WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM student_dismissed_announcements WHERE announcement_id IN (SELECT id FROM teacher_announcements WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond}))")
+    cursor.execute(f"DELETE FROM teacher_announcements WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM teachers WHERE {dummy_cond}")
+    conn.commit()
+    conn.close()
+
+    # Invalidate cache and backup clean state to Google Drive
+    global _admin_stats_cache
+    _admin_stats_cache['data'] = None
+    database.backup_database_to_cloud_async()
+
+    return jsonify({
+        'success': True,
+        'message': 'सर्व डमी व सॅम्पल शिक्षक डेटा कायमचा हटवला आहे! (All dummy/sample teachers wiped successfully and database cleaned).'
+    })
+
+# ----------------- CLOUD SYNC & RESTORE ENDPOINTS -----------------
+@app.route('/api/system/cloud-status', methods=['GET'])
+def system_cloud_status():
+    """Public health-check endpoint to verify Google Drive sync connection."""
+    status = database.check_cloud_sync_status()
+    return jsonify(status)
+
+@app.route('/api/admin/cloud-sync-status', methods=['GET'])
+@admin_required
+def admin_cloud_sync_status():
+    """Admin endpoint to check full cloud sync health."""
+    status = database.check_cloud_sync_status()
+    return jsonify(status)
+
+@app.route('/api/admin/cloud-backup-now', methods=['POST'])
+@admin_required
+def admin_cloud_backup_now():
+    """Force immediate database backup to Google Drive."""
+    res = database.backup_database_to_cloud_sync()
+    return jsonify(res)
+
+@app.route('/api/admin/cloud-restore-now', methods=['POST'])
+@admin_required
+def admin_cloud_restore_now():
+    """Force immediate database restore from Google Drive."""
+    success = database.restore_database_from_cloud()
+    if success:
+        database.init_db()
+        database.seed_database()
+        global _admin_stats_cache
+        _admin_stats_cache['data'] = None
+        return jsonify({'success': True, 'message': 'Google Drive वरून डेटाबेस यशस्वीरीत्या पूर्ववत केला! (Database successfully restored from Google Drive).'})
+    else:
+        return jsonify({'success': False, 'error': 'Google Drive वर बॅकअप सापडला नाही किंवा कनेक्शन अयशस्वी झाले.'}), 400
 
 # =========================================================================
 # 2. TEACHER REGISTRATION & AUTHENTICATION
@@ -2027,6 +2157,9 @@ def teacher_register():
     new_id = cursor.lastrowid
     conn.commit()
     conn.close()
+
+    # Automatically backup state to Google Drive Cloud
+    database.backup_database_to_cloud_async()
 
     send_teacher_registration_received_email(
         to_email=email,
@@ -3323,6 +3456,7 @@ def add_single_student_roster():
         return jsonify({'error': f'Database error: {str(e)}'}), 400
 
     conn.close()
+    database.backup_database_to_cloud_async()
     return jsonify({'success': True, 'message': f'Student {student_name} added to roster!', 'id': sid}), 201
 
 @app.route('/api/teacher/roster/bulk', methods=['POST'])
@@ -3388,6 +3522,7 @@ def bulk_student_roster():
 
     conn.commit()
     conn.close()
+    database.backup_database_to_cloud_async()
 
     return jsonify({
         'message': f'Roster updated: {inserted_count} student(s) successfully processed.',
@@ -3578,6 +3713,7 @@ def manage_created_assessments():
         conn.commit()
         new_id = cursor.lastrowid
         conn.close()
+        database.backup_database_to_cloud_async()
         return jsonify({'success': True, 'message': 'Assessment session created successfully!', 'assessment_code': asm_code, 'id': new_id, 'assessment_id': new_id, 'show_marks_to_students': show_marks_to_students, 'duration_minutes': duration_minutes}), 201
 
     # GET
@@ -4620,6 +4756,7 @@ def create_student_submission():
 
     conn.commit()
     conn.close()
+    database.backup_database_to_cloud_async()
 
     return jsonify({
         'success': True,
@@ -4812,6 +4949,7 @@ def evaluate_submission(sub_id=None):
 
     conn.commit()
     conn.close()
+    database.backup_database_to_cloud_async()
     
     msg = f"गट '{sub.get('group_code')}' मधील सर्व {len(target_sub_ids)} सदस्यांचे गुण यशस्वीरीत्या नोंदवले!" if (len(target_sub_ids) > 1 and sub.get('group_code')) else 'Evaluation saved successfully!'
     return jsonify({'success': True, 'message': msg, 'status': 'Assessed', 'updated_count': len(target_sub_ids)})
@@ -5149,10 +5287,14 @@ def download_submission_pdf(id_or_code):
     cursor = conn.cursor()
     cursor.execute("""
     SELECT s.*, 
+           tr.email as student_email,
+           t.email as teacher_email,
            e.marks_obtained, COALESCE(e.maximum_marks, ca.max_marks, 20) as maximum_marks, ca.max_marks as assessment_max_marks, e.remarks, e.evaluated_at,
            ca.is_mcq as assessment_is_mcq, ca.mcq_questions_json as assessment_mcq_questions_json,
            ca.show_marks_to_students
     FROM submissions s
+    LEFT JOIN teacher_rosters tr ON s.roster_id = tr.id
+    LEFT JOIN teachers t ON s.teacher_id = t.id
     LEFT JOIN evaluations e ON s.id = e.submission_id
     LEFT JOIN created_assessments ca ON s.created_assessment_id = ca.id
     WHERE s.id = ? OR s.submission_id = ?

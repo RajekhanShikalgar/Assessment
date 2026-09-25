@@ -15,8 +15,12 @@
     let adminTok = null;
     let teacherTok = null;
     try {
-      adminTok = localStorage.getItem('ciems_admin_token');
-      teacherTok = localStorage.getItem('ciems_teacher_token');
+      // Purge any old lingering tokens from localStorage so closing browser tab ends the session
+      localStorage.removeItem('ciems_admin_token');
+      localStorage.removeItem('ciems_teacher_token');
+      localStorage.removeItem('ciems_admin_session');
+      adminTok = sessionStorage.getItem('ciems_admin_token');
+      teacherTok = sessionStorage.getItem('ciems_teacher_token');
     } catch(e) {}
     
     const activeToken = adminTok || teacherTok;
@@ -1566,7 +1570,10 @@ async function checkAuthStates() {
     const aData = await aRes.json();
     if (aData.authenticated && aData.admin) {
       currentAdmin = aData.admin;
-      try { localStorage.setItem('ciems_admin_session', JSON.stringify(aData.admin)); } catch(e) {}
+      try { 
+        sessionStorage.setItem('ciems_admin_session', JSON.stringify(aData.admin)); 
+        localStorage.removeItem('ciems_admin_session');
+      } catch(e) {}
       container.innerHTML = `
         <div class="flex items-center space-x-1.5 sm:space-x-2">
           <button onclick="navigateTo('admin-portal')" class="px-2.5 py-1 rounded-lg bg-purple-700/80 hover:bg-purple-700 text-white text-xs font-bold transition flex items-center space-x-1 border border-purple-500/40 shadow-sm" title="Open Admin Portal">
@@ -3504,7 +3511,8 @@ async function handleTeacherLogin(e) {
 
     currentTeacher = data.teacher;
     try {
-      if (data.token) localStorage.setItem('ciems_teacher_token', data.token);
+      if (data.token) sessionStorage.setItem('ciems_teacher_token', data.token);
+      localStorage.removeItem('ciems_teacher_token');
     } catch(e) {}
     updateTeacherProfileUI();
     await checkAuthStates();
@@ -3523,6 +3531,7 @@ async function handleTeacherLogout() {
     await fetch('/api/teacher/logout', { method: 'POST' });
   } catch(e) {}
   try {
+    sessionStorage.removeItem('ciems_teacher_token');
     localStorage.removeItem('ciems_teacher_token');
   } catch(e) {}
   currentTeacher = null;
@@ -7925,8 +7934,10 @@ async function handleAdminLogin(e) {
 
     currentAdmin = data.admin;
     try {
-      if (data.token) localStorage.setItem('ciems_admin_token', data.token);
-      localStorage.setItem('ciems_admin_session', JSON.stringify(data.admin));
+      if (data.token) sessionStorage.setItem('ciems_admin_token', data.token);
+      sessionStorage.setItem('ciems_admin_session', JSON.stringify(data.admin));
+      localStorage.removeItem('ciems_admin_token');
+      localStorage.removeItem('ciems_admin_session');
     } catch(e) {}
     invalidateAdminCache();
     document.getElementById('admin-login-box')?.classList.add('hidden');
@@ -7948,6 +7959,8 @@ async function handleAdminLogout() {
     await fetch('/api/admin/logout', { method: 'POST' });
   } catch (e) {}
   try {
+    sessionStorage.removeItem('ciems_admin_token');
+    sessionStorage.removeItem('ciems_admin_session');
     localStorage.removeItem('ciems_admin_token');
     localStorage.removeItem('ciems_admin_session');
   } catch(e) {}
@@ -7970,6 +7983,46 @@ function invalidateAdminCache() {
   _adminTeachersCache = {};
   _adminFacultySearchCache = {};
   _adminAnnouncementsCache = null;
+}
+
+async function cleanAdminDummyData() {
+  const isMr = (currentLanguage === 'mr');
+  const confirmMsg = isMr
+    ? 'सिस्टममधील सर्व जुना सॅम्पल / डमी शिक्षक डेटा कायमचा हटवायचा का?'
+    : 'Wipe all legacy sample and dummy teacher records permanently?';
+  if (!confirm(confirmMsg)) return;
+  try {
+    const res = await fetch('/api/admin/clean-dummy-data', {method: 'POST'});
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message, 'success');
+      invalidateAdminCache();
+      if (typeof loadAdminTeachers === 'function') loadAdminTeachers(true);
+      if (typeof loadAdminDashboardStats === 'function') loadAdminDashboardStats(true);
+      if (typeof loadAdminFacultySearch === 'function') loadAdminFacultySearch(true);
+    } else {
+      showToast(data.error || 'Failed to clean dummy data', 'error');
+    }
+  } catch (e) {
+    showToast('Error cleaning dummy data: ' + e, 'error');
+  }
+}
+
+async function triggerManualCloudBackup() {
+  const isMr = (currentLanguage === 'mr');
+  showToast(isMr ? 'Google Drive वर डेटाबेस बॅकअप सुरू आहे...' : 'Backing up database to Google Drive...', 'info');
+  try {
+    const res = await fetch('/api/admin/cloud-backup-now', {method: 'POST'});
+    const data = await res.json();
+    if (data.success) {
+      const msg = isMr ? 'डेटाबेस Google Drive वर यशस्वीरीत्या सुरक्षित सेव्ह झाला!' : 'Database backed up to Google Drive successfully!';
+      showToast(msg, 'success');
+    } else {
+      showToast(data.error || 'Backup failed', 'error');
+    }
+  } catch (e) {
+    showToast('Error backing up to Google Drive: ' + e, 'error');
+  }
 }
 
 function showAdminSection(secName) {

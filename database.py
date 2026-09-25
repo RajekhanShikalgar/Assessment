@@ -22,6 +22,90 @@ def get_db_connection():
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
+import base64
+import urllib.request
+import threading
+import time
+
+_LAST_BACKUP_TIME = 0
+_BACKUP_LOCK = threading.Lock()
+
+def restore_database_from_cloud():
+    relay_url = os.environ.get('GMAIL_RELAY_URL', '').strip()
+    if not relay_url:
+        return False
+    try:
+        print("[CLOUD SYNC] Checking Google Drive for latest assessment.db backup...")
+        req = urllib.request.Request(
+            relay_url,
+            data=json.dumps({'action': 'restore_db'}).encode('utf-8'),
+            headers={'Content-Type': 'application/json', 'User-Agent': 'CIEMS-Portal/1.0'}
+        )
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            if data.get('status') == 'success' and data.get('found') and data.get('db_base64'):
+                db_bytes = base64.b64decode(data['db_base64'])
+                if len(db_bytes) > 1000:
+                    with open(DB_PATH, 'wb') as f:
+                        f.write(db_bytes)
+                    print(f"[CLOUD SYNC SUCCESS] Successfully restored database from Google Drive ({len(db_bytes)} bytes)!")
+                    return True
+        print("[CLOUD SYNC] No previous Google Drive backup found or database already up-to-date.")
+    except Exception as e:
+        print(f"[CLOUD SYNC NOTICE] Cloud restore check: {e}")
+    return False
+
+def check_cloud_sync_status():
+    relay_url = os.environ.get('GMAIL_RELAY_URL', '').strip()
+    if not relay_url:
+        return {'configured': False, 'message': 'GMAIL_RELAY_URL पर्यावरण चल (Environment Variable) सेट केलेला नाही.'}
+    try:
+        req = urllib.request.Request(
+            relay_url,
+            data=json.dumps({'action': 'ping'}).encode('utf-8'),
+            headers={'Content-Type': 'application/json', 'User-Agent': 'CIEMS-Portal/1.0'}
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            return {'configured': True, 'success': True, 'relay_response': data}
+    except Exception as e:
+        return {'configured': True, 'success': False, 'error': str(e)}
+
+def backup_database_to_cloud_sync():
+    relay_url = os.environ.get('GMAIL_RELAY_URL', '').strip()
+    if not relay_url or not os.path.exists(DB_PATH):
+        return {'success': False, 'error': 'GMAIL_RELAY_URL missing or database file not found'}
+    try:
+        conn = get_db_connection()
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        conn.close()
+
+        with open(DB_PATH, 'rb') as f:
+            db_bytes = f.read()
+        b64_str = base64.b64encode(db_bytes).decode('utf-8')
+        payload = {
+            'action': 'backup_db',
+            'db_base64': b64_str,
+            'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        req = urllib.request.Request(
+            relay_url,
+            data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json', 'User-Agent': 'CIEMS-Portal/1.0'}
+        )
+        with urllib.request.urlopen(req, timeout=35) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            print(f"[CLOUD BACKUP SYNC SUCCESS] Database saved to Google Drive ({len(db_bytes)} bytes)!")
+            return {'success': True, 'relay_response': data, 'size_bytes': len(db_bytes)}
+    except Exception as e:
+        print(f"[CLOUD BACKUP SYNC ERROR] {e}")
+        return {'success': False, 'error': str(e)}
+
+def backup_database_to_cloud_async():
+    thread = threading.Thread(target=backup_database_to_cloud_sync, daemon=True)
+    thread.start()
+
+
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
@@ -746,9 +830,6 @@ def init_db():
     # Normalize all teacher codes in database to clean uppercase
     cursor.execute("UPDATE teachers SET teacher_code = UPPER(teacher_code) WHERE teacher_code IS NOT NULL")
 
-    # Ensure seeded default credentials for admin view
-    cursor.execute("UPDATE teachers SET temp_plain_password = 'faculty123' WHERE email = 'rajekhan@rajekhan.in' AND (temp_plain_password IS NULL OR temp_plain_password = '')")
-
     # High-Performance Indexes for Instant Queries
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_teachers_status ON teachers(status)",
@@ -1009,202 +1090,33 @@ def seed_database():
             WHERE id = ?
             """, (desc, is_grp, json.dumps(fields), existing['id']))
 
-    # 3. Seed demo data once on initial installation
+    # 3. Mark database configuration initialized
     cursor.execute("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)")
-    cursor.execute("SELECT value FROM system_config WHERE key = 'sample_data_seeded'")
-    seeded_flag = cursor.fetchone()
+    cursor.execute("INSERT OR REPLACE INTO system_config (key, value) VALUES ('sample_data_seeded', '1')")
 
-    if not seeded_flag:
-        # Seed an Approved Teacher for demonstration
-        cursor.execute("SELECT COUNT(*) as cnt FROM teachers WHERE email='rajekhan@rajekhan.in'")
-        if cursor.fetchone()['cnt'] == 0:
-            acad_yr, val_start, val_end = get_current_academic_year()
-            cursor.execute("""
-            INSERT INTO teachers 
-            (teacher_code, name, designation, college_name, university_name, faculty_stream, subject_name, email, mobile, password_hash, temp_plain_password, status, validity_start, validity_end, academic_year, approved_at, approved_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'faculty123', 'approved', ?, ?, ?, CURRENT_TIMESTAMP, 'System Admin')
-            """, (
-                'TCH-RAJ-01',
-                'Dr. Rajekhan Shikalgar',
-                'सहाय्यक प्राध्यापक (Assistant Professor)',
-                'Rajeshree Shahu Arts & Commerce College, Rukadi',
-                'Shivaji University, Kolhapur',
-                'कला (Arts)',
-                'भूगोल (Geography)',
-                'rajekhan@rajekhan.in',
-                '9876543210',
-                hash_password('faculty123'),
-                val_start,
-                val_end,
-                acad_yr
-            ))
-            teacher_id = cursor.lastrowid
+    # 4. Clean up legacy dummy demo accounts and all associated demo records
+    dummy_cond = "email IN ('patil@college.edu', 'rajekhan@rajekhan.in') OR teacher_code IN ('TCH-RAJ-01', 'TCH-ECO-02') OR name LIKE '%Suresh Mohan Patil%' OR college_name LIKE '%Chhatrapati Shahu Arts College%'"
+    cursor.execute(f"""
+    DELETE FROM evaluations WHERE submission_id IN (
+        SELECT id FROM submissions WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})
+    )
+    """)
+    cursor.execute(f"""
+    DELETE FROM audit_logs WHERE submission_id IN (
+        SELECT id FROM submissions WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})
+    )
+    """)
+    cursor.execute(f"DELETE FROM submissions WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM created_assessments WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM teacher_assignment_mappings WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM teacher_subjects WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM teacher_rosters WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM teacher_study_materials WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM student_dismissed_announcements WHERE announcement_id IN (SELECT id FROM teacher_announcements WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond}))")
+    cursor.execute(f"DELETE FROM teacher_announcements WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM teachers WHERE {dummy_cond}")
 
-            # Seed Class Roster
-            roster_data = [
-                (teacher_id, '2026–27', 'B.A. III', 'A', '101', '2024016400012345', 'Amit Vinayak Kulkarni', 'Male', 'amit@student.in', '9890123456', 0),
-                (teacher_id, '2026–27', 'B.A. III', 'A', '102', '2024016400012346', 'Pooja Suresh Chavan', 'Female', 'pooja@student.in', '9890123457', 0),
-                (teacher_id, '2026–27', 'B.A. III', 'A', '103', '2024016400012347', 'Siddharth Ramesh Patil', 'Male', 'siddharth@student.in', '9890123458', 0),
-                (teacher_id, '2026–27', 'B.A. III', 'A', '104', '2023016400011111', 'Vikas Tanaji Shinde (Repeater)', 'Male', 'vikas@student.in', '9890123459', 1),
-                (teacher_id, '2026–27', 'B.A. I', 'A', '1', '2026016400000001', 'Sneha Anand Jadhav', 'Female', 'sneha@student.in', '9890123460', 0)
-            ]
-            cursor.executemany("""
-            INSERT INTO teacher_rosters 
-            (teacher_id, academic_year, class_name, division, roll_number, prn, student_name, gender, email, mobile, is_repeater)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, roster_data)
-
-            # Seed Unified Subject Mapping
-            cursor.execute("""
-            INSERT INTO teacher_subjects
-            (teacher_id, academic_year, faculty_stream, subject_name, class_name, semester, course_code, course_name, credits, total_internal_max_marks)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                teacher_id, '2026–27', 'कला (Arts)', 'भूगोल (Geography)', 'B.A. III', 'Semester V',
-                'GEO-301', 'Physical Geography of India (Paper VII)', 4, 40.0
-            ))
-            sub_id = cursor.lastrowid
-
-            # Seed Assignment Mappings for this subject
-            assignments = [
-                (teacher_id, sub_id, 1, 'Seminar', 10.0, 'Curriculum seminar presentation'),
-                (teacher_id, sub_id, 10, 'Home Assignment', 10.0, 'Comprehensive take-home writing'),
-                (teacher_id, sub_id, 8, 'Quiz', 10.0, 'Objective assessment quiz'),
-                (teacher_id, sub_id, 2, 'Unit Test', 10.0, 'Periodic classroom test')
-            ]
-            cursor.executemany("""
-            INSERT INTO teacher_assignment_mappings
-            (teacher_id, subject_id, assessment_type_id, assessment_type_name, max_marks, description)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """, assignments)
-
-            # Seed a Created Assessment Session
-            cursor.execute("SELECT id FROM teacher_assignment_mappings WHERE assessment_type_name='Home Assignment' AND subject_id=?", (sub_id,))
-            home_assign_id = cursor.fetchone()['id']
-
-            asm_code = "ASM-2026-GEO-BA3-01"
-            cursor.execute("""
-            INSERT OR IGNORE INTO created_assessments
-            (assessment_code, teacher_id, subject_id, assignment_mapping_id, academic_year, class_name, semester,
-             course_code, course_name, assessment_type_name, assessment_session_title, assignment_topic, max_marks,
-             submission_deadline, allow_late, is_group, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
-            """, (
-                asm_code, teacher_id, sub_id, home_assign_id, '2026–27', 'B.A. III', 'Semester V',
-                'GEO-301', 'Physical Geography of India (Paper VII)', 'Home Assignment',
-                'B.A. III Geography Home Assignment (Sem V)',
-                'Physiographic Divisions of India and Coastal Landforms',
-                10.0, '2026-10-31', 1, 0
-            ))
-            created_asm_id = cursor.lastrowid or 1
-
-            # Seed completed submission for Amit Kulkarni
-            cursor.execute("SELECT id FROM teacher_rosters WHERE prn='2024016400012345'")
-            row_amit = cursor.fetchone()
-            amit_roster_id = row_amit['id'] if row_amit else 1
-
-            sub_id_code = "RAJ-IA-2026-000101"
-            dyn_data_json = json.dumps({
-                "assignment_title": "Physiographic Divisions of Peninsular India",
-                "topic": "Deccan Plateau and Western Ghats Geomorphic Analysis",
-                "introduction": "The Indian subcontinent comprises distinct geomorphological divisions including the Great Northern Mountains, Indo-Gangetic Plain, Peninsular Plateau, and Coastal Plains.",
-                "conclusion": "The Peninsular shield is one of the oldest and most stable geological landmasses on earth.",
-                "references": "1. Savindra Singh (Physical Geography)\n2. Majid Husain (Geography of India)"
-            })
-            typed_html = """
-            <h3>1. Physiographic Overview</h3>
-            <p>Peninsular India forms a triangular plateau bounded by the Aravallis, Vindhyas, Satpuras, and Western & Eastern Ghats.</p>
-            <h3>2. Geomorphic Features</h3>
-            <ul>
-              <li><strong>Deccan Traps:</strong> Step-like basaltic terraced topography formed by Cretaceous volcanism.</li>
-              <li><strong>Western Ghats (Sahyadris):</strong> Continuous scarp overlooking the Arabian Sea with prominent passes (Thal Ghat, Bhor Ghat).</li>
-            </ul>
-            """
-
-            cursor.execute("""
-            INSERT OR IGNORE INTO submissions 
-            (submission_id, teacher_id, roster_id, created_assessment_id, student_name, roll_number, prn,
-             class_name, division, semester, course_code, course_name, teacher_name, college_name, university_name,
-             assessment_type_name, topic, dynamic_data_json, typed_content_html, status, submitted_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Assessed', '2026-09-15 10:30:00')
-            """, (
-                sub_id_code, teacher_id, amit_roster_id, created_asm_id, 'Amit Vinayak Kulkarni', '101', '2024016400012345',
-                'B.A. III', 'A', 'Semester V', 'GEO-301', 'Physical Geography of India (Paper VII)',
-                'Dr. Rajekhan Shikalgar', 'Rajeshree Shahu Arts & Commerce College, Rukadi', 'Shivaji University, Kolhapur',
-                'Home Assignment', 'Physiographic Divisions of India and Coastal Landforms',
-                dyn_data_json, typed_html
-            ))
-            cursor.execute("SELECT id FROM submissions WHERE submission_id = ?", (sub_id_code,))
-            row_sub = cursor.fetchone()
-            if row_sub:
-                sub_row_id = row_sub['id']
-                # Seed Evaluation
-                cursor.execute("""
-                INSERT OR IGNORE INTO evaluations 
-                (submission_id, marks_obtained, maximum_marks, remarks, evaluated_by_teacher_id, evaluated_at)
-                VALUES (?, ?, ?, ?, ?, '2026-09-16 14:00:00')
-                """, (
-                    sub_row_id, 9.0, 10.0,
-                    "Excellent write-up with well-structured geomorphological descriptions.",
-                    teacher_id
-                ))
-
-    # 4. Seed Pending Teacher Request for Admin Approval demonstration
-    cursor.execute("SELECT COUNT(*) as cnt FROM teachers WHERE email='patil@college.edu'")
-    if cursor.fetchone()['cnt'] == 0:
-        cursor.execute("""
-        INSERT INTO teachers 
-        (teacher_code, name, designation, college_name, university_name, faculty_stream, subject_name, email, mobile, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-        """, (
-            'TCH-ECO-02',
-            'Prof. Suresh Mohan Patil',
-            'सहाय्यक प्राध्यापक (Assistant Professor)',
-            'Chhatrapati Shahu Arts College, Kolhapur',
-            'Shivaji University, Kolhapur',
-            'कला (Arts)',
-            'अर्थशास्त्र (Economics)',
-            'patil@college.edu',
-            '9876543211'
-        ))
-
-    # 5. Seed sample study materials
-    cursor.execute("SELECT id FROM teachers WHERE email='rajekhan@rajekhan.in'")
-    t_row = cursor.fetchone()
-    if t_row:
-        t_id = t_row['id']
-        cursor.execute("SELECT COUNT(*) as cnt FROM teacher_study_materials WHERE teacher_id = ?", (t_id,))
-        if cursor.fetchone()['cnt'] == 0:
-            cursor.execute("""
-            INSERT INTO teacher_study_materials
-            (teacher_id, class_name, subject_name, topic_title, resource_type, resource_url, description)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                t_id,
-                'B.A. III',
-                'भूगोल (Geography)',
-                'Unit 1: Physiographic Divisions of India & Northern Mountains',
-                'YouTube Video',
-                'https://www.youtube.com/watch?v=sample-geography-lecture',
-                'Detailed video analysis on Himalayan formation and Physiography.'
-            ))
-            cursor.execute("""
-            INSERT INTO teacher_study_materials
-            (teacher_id, class_name, subject_name, topic_title, resource_type, resource_url, description)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                t_id,
-                'B.A. III',
-                'भूगोल (Geography)',
-                'Unit 2: Coastal Plains & Peninsular Plateau Study Notes (PDF)',
-                'Google Drive Notes',
-                'https://drive.google.com/sample-notes-geography',
-                'Comprehensive lecture notes and reference maps for Paper VII.'
-            ))
-
-        cursor.execute("INSERT OR REPLACE INTO system_config (key, value) VALUES ('sample_data_seeded', '1')")
-
-    # 6. Seed Master Streams, Subjects, and Classes if empty
+    # 5. Seed Master Streams, Subjects, and Classes if empty
     cursor.execute("SELECT COUNT(*) as cnt FROM master_streams")
     if cursor.fetchone()['cnt'] == 0:
         seed_master_mapping_defaults(cursor)

@@ -16,74 +16,76 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase.pdfmetrics import registerFontFamily
 
 # Register Unicode TrueType font supporting both Latin (English) and Devanagari (Marathi)
-FONTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'fonts')
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+FONTS_DIR = os.path.join(ROOT_DIR, 'static', 'fonts')
 UNIFIED_REGULAR_FONT = os.path.join(FONTS_DIR, 'NotoSansDevanagari-Unified.ttf')
 UNIFIED_BOLD_FONT = os.path.join(FONTS_DIR, 'NotoSansDevanagari-Bold-Unified.ttf')
-BUNDLED_UNICODE_FONT = os.path.join(FONTS_DIR, 'UnicodeFont.ttf')
+ROOT_REGULAR_FONT = os.path.join(ROOT_DIR, 'NotoSansDevanagari-Unified.ttf')
+ROOT_BOLD_FONT = os.path.join(ROOT_DIR, 'NotoSansDevanagari-Bold-Unified.ttf')
 
 SYSTEM_FONT_CANDIDATES = [
     UNIFIED_REGULAR_FONT,
-    BUNDLED_UNICODE_FONT,
+    ROOT_REGULAR_FONT,
+    os.path.join(FONTS_DIR, 'NotoSansDevanagari-Regular.ttf'),
+    os.path.join(ROOT_DIR, 'NotoSansDevanagari-Regular.ttf'),
+    '/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf',
+    '/usr/share/fonts/truetype/freefont/FreeSerif.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
     '/Library/Fonts/Arial Unicode.ttf',
-    '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
-    os.path.join(FONTS_DIR, 'NotoSansDevanagari-Regular.ttf')
+    '/System/Library/Fonts/Supplemental/Arial Unicode.ttf'
 ]
+
+def _ensure_devanagari_font():
+    for fp in SYSTEM_FONT_CANDIDATES:
+        if os.path.exists(fp):
+            return fp
+    tmp_path = '/tmp/NotoSansDevanagari-Regular.ttf'
+    if os.path.exists(tmp_path):
+        return tmp_path
+    # Auto-download Google Noto Sans Devanagari font from CDN if missing
+    try:
+        import urllib.request, ssl
+        ctx = ssl._create_unverified_context()
+        url = 'https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansDevanagari/NotoSansDevanagari-Regular.ttf'
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, context=ctx, timeout=10) as resp:
+            data = resp.read()
+            if len(data) > 50000:
+                with open(tmp_path, 'wb') as f:
+                    f.write(data)
+                print(f"[FONT LOAD] Automatically downloaded NotoSansDevanagari ({len(data)} bytes) to /tmp!")
+                return tmp_path
+    except Exception as e:
+        print("[FONT DOWNLOAD NOTICE]", e)
+    return None
 
 PDF_FONT_NORMAL = 'Helvetica'
 PDF_FONT_BOLD = 'Helvetica-Bold'
 
-try:
-    import uharfbuzz as hb
-    HAS_HARFBUZZ = True
-except ImportError:
-    HAS_HARFBUZZ = False
-
-GLYPH_TO_PUA = {}
-HB_FONT = None
-
-for font_path in SYSTEM_FONT_CANDIDATES:
-    if os.path.exists(font_path):
-        try:
-            ttfont = TTFont('UnicodeFont', font_path)
-            pdfmetrics.registerFont(ttfont)
-            ttfont_bold = None
-            if font_path == UNIFIED_REGULAR_FONT and os.path.exists(UNIFIED_BOLD_FONT):
-                try:
-                    ttfont_bold = TTFont('UnicodeFont-Bold', UNIFIED_BOLD_FONT)
-                    pdfmetrics.registerFont(ttfont_bold)
-                    registerFontFamily('UnicodeFont', normal='UnicodeFont', bold='UnicodeFont-Bold', italic='UnicodeFont', boldItalic='UnicodeFont-Bold')
-                    PDF_FONT_BOLD = 'UnicodeFont-Bold'
-                except Exception:
-                    registerFontFamily('UnicodeFont', normal='UnicodeFont', bold='UnicodeFont', italic='UnicodeFont', boldItalic='UnicodeFont')
-                    PDF_FONT_BOLD = 'UnicodeFont'
-            else:
+resolved_font = _ensure_devanagari_font()
+if resolved_font:
+    try:
+        ttfont = TTFont('UnicodeFont', resolved_font)
+        ttfont.shapable = True
+        pdfmetrics.registerFont(ttfont)
+        bold_candidate = UNIFIED_BOLD_FONT if os.path.exists(UNIFIED_BOLD_FONT) else (ROOT_BOLD_FONT if os.path.exists(ROOT_BOLD_FONT) else None)
+        if bold_candidate and os.path.exists(bold_candidate):
+            try:
+                ttfont_bold = TTFont('UnicodeFont-Bold', bold_candidate)
+                ttfont_bold.shapable = True
+                pdfmetrics.registerFont(ttfont_bold)
+                registerFontFamily('UnicodeFont', normal='UnicodeFont', bold='UnicodeFont-Bold', italic='UnicodeFont', boldItalic='UnicodeFont-Bold')
+                PDF_FONT_BOLD = 'UnicodeFont-Bold'
+            except Exception:
                 registerFontFamily('UnicodeFont', normal='UnicodeFont', bold='UnicodeFont', italic='UnicodeFont', boldItalic='UnicodeFont')
                 PDF_FONT_BOLD = 'UnicodeFont'
-            PDF_FONT_NORMAL = 'UnicodeFont'
-
-            if HAS_HARFBUZZ:
-                try:
-                    blob = hb.Blob.from_file_path(font_path)
-                    hb_face = hb.Face(blob)
-                    HB_FONT = hb.Font(hb_face)
-                    upem = hb_face.upem or 1000
-                    num_glyphs = hb_face.glyph_count
-                    for gid in range(num_glyphs):
-                        pua_code = 0xE000 + gid
-                        ttfont.face.charToGlyph[pua_code] = gid
-                        if ttfont_bold is not None:
-                            ttfont_bold.face.charToGlyph[pua_code] = gid
-                        adv = HB_FONT.get_glyph_h_advance(gid)
-                        adv_1000 = int(adv * 1000.0 / upem) if upem else adv
-                        ttfont.face.charWidths[pua_code] = adv_1000
-                        if ttfont_bold is not None:
-                            ttfont_bold.face.charWidths[pua_code] = adv_1000
-                        GLYPH_TO_PUA[gid] = chr(pua_code)
-                except Exception:
-                    pass
-            break
-        except Exception:
-            continue
+        else:
+            registerFontFamily('UnicodeFont', normal='UnicodeFont', bold='UnicodeFont', italic='UnicodeFont', boldItalic='UnicodeFont')
+            PDF_FONT_BOLD = 'UnicodeFont'
+        PDF_FONT_NORMAL = 'UnicodeFont'
+        print(f"[PDF ENGINE SUCCESS] Unicode font registered from: {resolved_font} (Bold: {PDF_FONT_BOLD})")
+    except Exception as e:
+        print("[PDF ENGINE FONT ERROR]", e)
 
 
 class NumberedCanvas(canvas.Canvas):
@@ -127,52 +129,6 @@ class NumberedCanvas(canvas.Canvas):
         self.rect(30, 20, 535, 802, stroke=1, fill=0)
         
         self.restoreState()
-
-
-def shape_text_plain(plain_str):
-    """Shapes a plain text segment using HarfBuzz if it contains Devanagari."""
-    if not plain_str or not HB_FONT or not GLYPH_TO_PUA:
-        return plain_str
-    if not any('\u0900' <= ch <= '\u097F' for ch in plain_str):
-        return plain_str
-    try:
-        parts = re.split(r'([\u0900-\u097F\u200C\u200D]+)', plain_str)
-        out = []
-        for p in parts:
-            if any('\u0900' <= ch <= '\u097F' for ch in p):
-                buf = hb.Buffer()
-                buf.add_str(p)
-                buf.script = 'Deva'
-                buf.language = 'mar'
-                buf.direction = 'ltr'
-                hb.shape(HB_FONT, buf)
-                out.append(''.join(GLYPH_TO_PUA.get(info.codepoint, '?') for info in buf.glyph_infos))
-            else:
-                out.append(p)
-        return ''.join(out)
-    except Exception:
-        return plain_str
-
-
-def shape_devanagari_html(html_str):
-    """Shapes text within HTML tags while preserving HTML elements."""
-    if not html_str or not HB_FONT or not GLYPH_TO_PUA:
-        return html_str
-    if not any('\u0900' <= ch <= '\u097F' for ch in html_str):
-        return html_str
-    try:
-        parts = re.split(r'(<[^>]+>)', html_str)
-        out = []
-        for p in parts:
-            if p.startswith('<') and p.endswith('>'):
-                out.append(p)
-            else:
-                clean_p = html.unescape(p)
-                shaped = shape_text_plain(clean_p)
-                out.append(shaped)
-        return ''.join(out)
-    except Exception:
-        return html_str
 
 
 def clean_html_for_reportlab(html_text):
@@ -240,21 +196,19 @@ def clean_html_for_reportlab(html_text):
 
 def safe_paragraph(text, style):
     """
-    Wraps text in a ReportLab Paragraph safely with HarfBuzz Devanagari shaping
-    and multi-tier fallback so PDF generation never crashes on malformed markup.
+    Wraps text in a ReportLab Paragraph safely with multi-tier fallback
+    so PDF generation never crashes on malformed markup.
     """
     if text is None:
         text = ""
     cleaned = clean_html_for_reportlab(str(text))
-    shaped = shape_devanagari_html(cleaned)
     try:
-        return Paragraph(shaped, style)
+        return Paragraph(cleaned, style)
     except Exception:
         try:
             plain = re.sub(r'<[^>]+>', ' ', str(text))
             plain = plain.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br/>')
-            plain_shaped = shape_devanagari_html(plain)
-            return Paragraph(plain_shaped, style)
+            return Paragraph(plain, style)
         except Exception:
             try:
                 escaped = html.escape(str(text)).replace('\n', '<br/>')
@@ -279,6 +233,8 @@ def generate_assessment_pdf(sub_data, eval_data=None, hide_marks=True):
     )
 
     styles = getSampleStyleSheet()
+    styles['Normal'].shaping = True
+    styles['Normal'].fontName = PDF_FONT_NORMAL
     
     title_style = ParagraphStyle(
         'DocTitle',
@@ -814,24 +770,49 @@ def generate_assessment_pdf(sub_data, eval_data=None, hide_marks=True):
         ('RIGHTPADDING', (0, 0), (-1, -1), 5),
     ]))
     
-    # Verification QR Code generation
-    sub_raw_id = sub_data.get('submission_id') or sub_data.get('id') or '0'
-    verify_url = f"https://rajekhan.in/verify/submission/{sub_raw_id}"
+    # Verification QR Code generation with complete assessment details
+    student_email = sub_data.get('student_email') or sub_data.get('email') or ''
+    if not student_email and isinstance(sub_data.get('dynamic_data_json'), str):
+        try:
+            d_json = json.loads(sub_data['dynamic_data_json'])
+            student_email = d_json.get('student_email') or d_json.get('email') or ''
+        except Exception:
+            pass
+
+    qr_data_lines = [
+        "CIEMS VERIFIED ASSESSMENT RECORD",
+        "----------------------------------------",
+        f"Submission ID: {submission_id}",
+        f"Student: {student_name}",
+        f"PRN: {prn} | Roll No: {roll_no}",
+        f"Email: {student_email}" if student_email else None,
+        f"Class: {class_name} ({semester})",
+        f"Subject: {subject_name} (Code: {course_code})",
+        f"Assessment: {assessment_type_name}",
+        f"Topic: {topic}",
+        f"Faculty: {teacher_name}",
+        f"College: {college_name}",
+        f"Status: {status}",
+        f"Date: {submitted_at}",
+        "----------------------------------------",
+        "Official Portal: https://www.rajekhan.in"
+    ]
+    qr_full_text = "\n".join([line for line in qr_data_lines if line])
     qr_img = None
     try:
         qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_M,
-            box_size=4,
-            border=1
+            version=None,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=6,
+            border=2
         )
-        qr.add_data(verify_url)
+        qr.add_data(qr_full_text)
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
         qr_io = io.BytesIO()
         img.save(qr_io, format="PNG")
         qr_io.seek(0)
-        qr_img = RLImage(qr_io, width=44, height=44)
+        qr_img = RLImage(qr_io, width=64, height=64)
     except Exception:
         qr_img = None
 
