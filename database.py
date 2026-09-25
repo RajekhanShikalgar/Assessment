@@ -1009,139 +1009,145 @@ def seed_database():
             WHERE id = ?
             """, (desc, is_grp, json.dumps(fields), existing['id']))
 
-    # 3. Seed an Approved Teacher for demonstration
-    cursor.execute("SELECT COUNT(*) as cnt FROM teachers WHERE email='rajekhan@rajekhan.in'")
-    if cursor.fetchone()['cnt'] == 0:
-        acad_yr, val_start, val_end = get_current_academic_year()
-        cursor.execute("""
-        INSERT INTO teachers 
-        (teacher_code, name, designation, college_name, university_name, faculty_stream, subject_name, email, mobile, password_hash, temp_plain_password, status, validity_start, validity_end, academic_year, approved_at, approved_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'faculty123', 'approved', ?, ?, ?, CURRENT_TIMESTAMP, 'System Admin')
-        """, (
-            'TCH-RAJ-01',
-            'Dr. Rajekhan Shikalgar',
-            'सहाय्यक प्राध्यापक (Assistant Professor)',
-            'Rajeshree Shahu Arts & Commerce College, Rukadi',
-            'Shivaji University, Kolhapur',
-            'कला (Arts)',
-            'भूगोल (Geography)',
-            'rajekhan@rajekhan.in',
-            '9876543210',
-            hash_password('faculty123'),
-            val_start,
-            val_end,
-            acad_yr
-        ))
-        teacher_id = cursor.lastrowid
+    # 3. Seed demo data once on initial installation
+    cursor.execute("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)")
+    cursor.execute("SELECT value FROM system_config WHERE key = 'sample_data_seeded'")
+    seeded_flag = cursor.fetchone()
 
-        # Seed Class Roster
-        roster_data = [
-            (teacher_id, '2026–27', 'B.A. III', 'A', '101', '2024016400012345', 'Amit Vinayak Kulkarni', 'Male', 'amit@student.in', '9890123456', 0),
-            (teacher_id, '2026–27', 'B.A. III', 'A', '102', '2024016400012346', 'Pooja Suresh Chavan', 'Female', 'pooja@student.in', '9890123457', 0),
-            (teacher_id, '2026–27', 'B.A. III', 'A', '103', '2024016400012347', 'Siddharth Ramesh Patil', 'Male', 'siddharth@student.in', '9890123458', 0),
-            (teacher_id, '2026–27', 'B.A. III', 'A', '104', '2023016400011111', 'Vikas Tanaji Shinde (Repeater)', 'Male', 'vikas@student.in', '9890123459', 1),
-            (teacher_id, '2026–27', 'B.A. I', 'A', '1', '2026016400000001', 'Sneha Anand Jadhav', 'Female', 'sneha@student.in', '9890123460', 0)
-        ]
-        cursor.executemany("""
-        INSERT INTO teacher_rosters 
-        (teacher_id, academic_year, class_name, division, roll_number, prn, student_name, gender, email, mobile, is_repeater)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, roster_data)
-
-        # Seed Unified Subject Mapping
-        cursor.execute("""
-        INSERT INTO teacher_subjects
-        (teacher_id, academic_year, faculty_stream, subject_name, class_name, semester, course_code, course_name, credits, total_internal_max_marks)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            teacher_id, '2026–27', 'कला (Arts)', 'भूगोल (Geography)', 'B.A. III', 'Semester V',
-            'GEO-301', 'Physical Geography of India (Paper VII)', 4, 40.0
-        ))
-        sub_id = cursor.lastrowid
-
-        # Seed Assignment Mappings for this subject
-        assignments = [
-            (teacher_id, sub_id, 1, 'Seminar', 10.0, 'Curriculum seminar presentation'),
-            (teacher_id, sub_id, 10, 'Home Assignment', 10.0, 'Comprehensive take-home writing'),
-            (teacher_id, sub_id, 8, 'Quiz', 10.0, 'Objective assessment quiz'),
-            (teacher_id, sub_id, 2, 'Unit Test', 10.0, 'Periodic classroom test')
-        ]
-        cursor.executemany("""
-        INSERT INTO teacher_assignment_mappings
-        (teacher_id, subject_id, assessment_type_id, assessment_type_name, max_marks, description)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """, assignments)
-
-        # Seed a Created Assessment Session
-        cursor.execute("SELECT id FROM teacher_assignment_mappings WHERE assessment_type_name='Home Assignment' AND subject_id=?", (sub_id,))
-        home_assign_id = cursor.fetchone()['id']
-
-        asm_code = "ASM-2026-GEO-BA3-01"
-        cursor.execute("""
-        INSERT OR IGNORE INTO created_assessments
-        (assessment_code, teacher_id, subject_id, assignment_mapping_id, academic_year, class_name, semester,
-         course_code, course_name, assessment_type_name, assessment_session_title, assignment_topic, max_marks,
-         submission_deadline, allow_late, is_group, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
-        """, (
-            asm_code, teacher_id, sub_id, home_assign_id, '2026–27', 'B.A. III', 'Semester V',
-            'GEO-301', 'Physical Geography of India (Paper VII)', 'Home Assignment',
-            'B.A. III Geography Home Assignment (Sem V)',
-            'Physiographic Divisions of India and Coastal Landforms',
-            10.0, '2026-10-31', 1, 0
-        ))
-        created_asm_id = cursor.lastrowid or 1
-
-        # Seed completed submission for Amit Kulkarni
-        cursor.execute("SELECT id FROM teacher_rosters WHERE prn='2024016400012345'")
-        row_amit = cursor.fetchone()
-        amit_roster_id = row_amit['id'] if row_amit else 1
-
-        sub_id_code = "RAJ-IA-2026-000101"
-        dyn_data_json = json.dumps({
-            "assignment_title": "Physiographic Divisions of Peninsular India",
-            "topic": "Deccan Plateau and Western Ghats Geomorphic Analysis",
-            "introduction": "The Indian subcontinent comprises distinct geomorphological divisions including the Great Northern Mountains, Indo-Gangetic Plain, Peninsular Plateau, and Coastal Plains.",
-            "conclusion": "The Peninsular shield is one of the oldest and most stable geological landmasses on earth.",
-            "references": "1. Savindra Singh (Physical Geography)\n2. Majid Husain (Geography of India)"
-        })
-        typed_html = """
-        <h3>1. Physiographic Overview</h3>
-        <p>Peninsular India forms a triangular plateau bounded by the Aravallis, Vindhyas, Satpuras, and Western & Eastern Ghats.</p>
-        <h3>2. Geomorphic Features</h3>
-        <ul>
-          <li><strong>Deccan Traps:</strong> Step-like basaltic terraced topography formed by Cretaceous volcanism.</li>
-          <li><strong>Western Ghats (Sahyadris):</strong> Continuous scarp overlooking the Arabian Sea with prominent passes (Thal Ghat, Bhor Ghat).</li>
-        </ul>
-        """
-
-        cursor.execute("""
-        INSERT OR IGNORE INTO submissions 
-        (submission_id, teacher_id, roster_id, created_assessment_id, student_name, roll_number, prn,
-         class_name, division, semester, course_code, course_name, teacher_name, college_name, university_name,
-         assessment_type_name, topic, dynamic_data_json, typed_content_html, status, submitted_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Assessed', '2026-09-15 10:30:00')
-        """, (
-            sub_id_code, teacher_id, amit_roster_id, created_asm_id, 'Amit Vinayak Kulkarni', '101', '2024016400012345',
-            'B.A. III', 'A', 'Semester V', 'GEO-301', 'Physical Geography of India (Paper VII)',
-            'Dr. Rajekhan Shikalgar', 'Rajeshree Shahu Arts & Commerce College, Rukadi', 'Shivaji University, Kolhapur',
-            'Home Assignment', 'Physiographic Divisions of India and Coastal Landforms',
-            dyn_data_json, typed_html
-        ))
-        cursor.execute("SELECT id FROM submissions WHERE submission_id = ?", (sub_id_code,))
-        row_sub = cursor.fetchone()
-        if row_sub:
-            sub_row_id = row_sub['id']
-            # Seed Evaluation
+    if not seeded_flag:
+        # Seed an Approved Teacher for demonstration
+        cursor.execute("SELECT COUNT(*) as cnt FROM teachers WHERE email='rajekhan@rajekhan.in'")
+        if cursor.fetchone()['cnt'] == 0:
+            acad_yr, val_start, val_end = get_current_academic_year()
             cursor.execute("""
-            INSERT OR IGNORE INTO evaluations 
-            (submission_id, marks_obtained, maximum_marks, remarks, evaluated_by_teacher_id, evaluated_at)
-            VALUES (?, ?, ?, ?, ?, '2026-09-16 14:00:00')
+            INSERT INTO teachers 
+            (teacher_code, name, designation, college_name, university_name, faculty_stream, subject_name, email, mobile, password_hash, temp_plain_password, status, validity_start, validity_end, academic_year, approved_at, approved_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'faculty123', 'approved', ?, ?, ?, CURRENT_TIMESTAMP, 'System Admin')
             """, (
-                sub_row_id, 9.0, 10.0,
-                "Excellent write-up with well-structured geomorphological descriptions.",
-                teacher_id
+                'TCH-RAJ-01',
+                'Dr. Rajekhan Shikalgar',
+                'सहाय्यक प्राध्यापक (Assistant Professor)',
+                'Rajeshree Shahu Arts & Commerce College, Rukadi',
+                'Shivaji University, Kolhapur',
+                'कला (Arts)',
+                'भूगोल (Geography)',
+                'rajekhan@rajekhan.in',
+                '9876543210',
+                hash_password('faculty123'),
+                val_start,
+                val_end,
+                acad_yr
             ))
+            teacher_id = cursor.lastrowid
+
+            # Seed Class Roster
+            roster_data = [
+                (teacher_id, '2026–27', 'B.A. III', 'A', '101', '2024016400012345', 'Amit Vinayak Kulkarni', 'Male', 'amit@student.in', '9890123456', 0),
+                (teacher_id, '2026–27', 'B.A. III', 'A', '102', '2024016400012346', 'Pooja Suresh Chavan', 'Female', 'pooja@student.in', '9890123457', 0),
+                (teacher_id, '2026–27', 'B.A. III', 'A', '103', '2024016400012347', 'Siddharth Ramesh Patil', 'Male', 'siddharth@student.in', '9890123458', 0),
+                (teacher_id, '2026–27', 'B.A. III', 'A', '104', '2023016400011111', 'Vikas Tanaji Shinde (Repeater)', 'Male', 'vikas@student.in', '9890123459', 1),
+                (teacher_id, '2026–27', 'B.A. I', 'A', '1', '2026016400000001', 'Sneha Anand Jadhav', 'Female', 'sneha@student.in', '9890123460', 0)
+            ]
+            cursor.executemany("""
+            INSERT INTO teacher_rosters 
+            (teacher_id, academic_year, class_name, division, roll_number, prn, student_name, gender, email, mobile, is_repeater)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, roster_data)
+
+            # Seed Unified Subject Mapping
+            cursor.execute("""
+            INSERT INTO teacher_subjects
+            (teacher_id, academic_year, faculty_stream, subject_name, class_name, semester, course_code, course_name, credits, total_internal_max_marks)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                teacher_id, '2026–27', 'कला (Arts)', 'भूगोल (Geography)', 'B.A. III', 'Semester V',
+                'GEO-301', 'Physical Geography of India (Paper VII)', 4, 40.0
+            ))
+            sub_id = cursor.lastrowid
+
+            # Seed Assignment Mappings for this subject
+            assignments = [
+                (teacher_id, sub_id, 1, 'Seminar', 10.0, 'Curriculum seminar presentation'),
+                (teacher_id, sub_id, 10, 'Home Assignment', 10.0, 'Comprehensive take-home writing'),
+                (teacher_id, sub_id, 8, 'Quiz', 10.0, 'Objective assessment quiz'),
+                (teacher_id, sub_id, 2, 'Unit Test', 10.0, 'Periodic classroom test')
+            ]
+            cursor.executemany("""
+            INSERT INTO teacher_assignment_mappings
+            (teacher_id, subject_id, assessment_type_id, assessment_type_name, max_marks, description)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, assignments)
+
+            # Seed a Created Assessment Session
+            cursor.execute("SELECT id FROM teacher_assignment_mappings WHERE assessment_type_name='Home Assignment' AND subject_id=?", (sub_id,))
+            home_assign_id = cursor.fetchone()['id']
+
+            asm_code = "ASM-2026-GEO-BA3-01"
+            cursor.execute("""
+            INSERT OR IGNORE INTO created_assessments
+            (assessment_code, teacher_id, subject_id, assignment_mapping_id, academic_year, class_name, semester,
+             course_code, course_name, assessment_type_name, assessment_session_title, assignment_topic, max_marks,
+             submission_deadline, allow_late, is_group, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+            """, (
+                asm_code, teacher_id, sub_id, home_assign_id, '2026–27', 'B.A. III', 'Semester V',
+                'GEO-301', 'Physical Geography of India (Paper VII)', 'Home Assignment',
+                'B.A. III Geography Home Assignment (Sem V)',
+                'Physiographic Divisions of India and Coastal Landforms',
+                10.0, '2026-10-31', 1, 0
+            ))
+            created_asm_id = cursor.lastrowid or 1
+
+            # Seed completed submission for Amit Kulkarni
+            cursor.execute("SELECT id FROM teacher_rosters WHERE prn='2024016400012345'")
+            row_amit = cursor.fetchone()
+            amit_roster_id = row_amit['id'] if row_amit else 1
+
+            sub_id_code = "RAJ-IA-2026-000101"
+            dyn_data_json = json.dumps({
+                "assignment_title": "Physiographic Divisions of Peninsular India",
+                "topic": "Deccan Plateau and Western Ghats Geomorphic Analysis",
+                "introduction": "The Indian subcontinent comprises distinct geomorphological divisions including the Great Northern Mountains, Indo-Gangetic Plain, Peninsular Plateau, and Coastal Plains.",
+                "conclusion": "The Peninsular shield is one of the oldest and most stable geological landmasses on earth.",
+                "references": "1. Savindra Singh (Physical Geography)\n2. Majid Husain (Geography of India)"
+            })
+            typed_html = """
+            <h3>1. Physiographic Overview</h3>
+            <p>Peninsular India forms a triangular plateau bounded by the Aravallis, Vindhyas, Satpuras, and Western & Eastern Ghats.</p>
+            <h3>2. Geomorphic Features</h3>
+            <ul>
+              <li><strong>Deccan Traps:</strong> Step-like basaltic terraced topography formed by Cretaceous volcanism.</li>
+              <li><strong>Western Ghats (Sahyadris):</strong> Continuous scarp overlooking the Arabian Sea with prominent passes (Thal Ghat, Bhor Ghat).</li>
+            </ul>
+            """
+
+            cursor.execute("""
+            INSERT OR IGNORE INTO submissions 
+            (submission_id, teacher_id, roster_id, created_assessment_id, student_name, roll_number, prn,
+             class_name, division, semester, course_code, course_name, teacher_name, college_name, university_name,
+             assessment_type_name, topic, dynamic_data_json, typed_content_html, status, submitted_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Assessed', '2026-09-15 10:30:00')
+            """, (
+                sub_id_code, teacher_id, amit_roster_id, created_asm_id, 'Amit Vinayak Kulkarni', '101', '2024016400012345',
+                'B.A. III', 'A', 'Semester V', 'GEO-301', 'Physical Geography of India (Paper VII)',
+                'Dr. Rajekhan Shikalgar', 'Rajeshree Shahu Arts & Commerce College, Rukadi', 'Shivaji University, Kolhapur',
+                'Home Assignment', 'Physiographic Divisions of India and Coastal Landforms',
+                dyn_data_json, typed_html
+            ))
+            cursor.execute("SELECT id FROM submissions WHERE submission_id = ?", (sub_id_code,))
+            row_sub = cursor.fetchone()
+            if row_sub:
+                sub_row_id = row_sub['id']
+                # Seed Evaluation
+                cursor.execute("""
+                INSERT OR IGNORE INTO evaluations 
+                (submission_id, marks_obtained, maximum_marks, remarks, evaluated_by_teacher_id, evaluated_at)
+                VALUES (?, ?, ?, ?, ?, '2026-09-16 14:00:00')
+                """, (
+                    sub_row_id, 9.0, 10.0,
+                    "Excellent write-up with well-structured geomorphological descriptions.",
+                    teacher_id
+                ))
 
     # 4. Seed Pending Teacher Request for Admin Approval demonstration
     cursor.execute("SELECT COUNT(*) as cnt FROM teachers WHERE email='patil@college.edu'")
@@ -1195,6 +1201,8 @@ def seed_database():
                 'https://drive.google.com/sample-notes-geography',
                 'Comprehensive lecture notes and reference maps for Paper VII.'
             ))
+
+        cursor.execute("INSERT OR REPLACE INTO system_config (key, value) VALUES ('sample_data_seeded', '1')")
 
     # 6. Seed Master Streams, Subjects, and Classes if empty
     cursor.execute("SELECT COUNT(*) as cnt FROM master_streams")

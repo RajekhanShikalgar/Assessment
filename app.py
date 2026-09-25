@@ -22,6 +22,7 @@ import smtplib
 import threading
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 import database
 import pdf_generator
@@ -49,7 +50,15 @@ app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(days=7)
 app.jinja_env.cache_size = 400  # Cache up to 400 compiled templates in memory
 
 @app.before_request
-def make_session_permanent():
+def handle_options_and_session():
+    if request.method == 'OPTIONS':
+        res = Response()
+        origin = request.headers.get('Origin') or '*'
+        res.headers['Access-Control-Allow-Origin'] = origin
+        res.headers['Access-Control-Allow-Credentials'] = 'true'
+        res.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Auth-Token, X-Requested-With, Accept, Origin'
+        res.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        return res
     session.permanent = True
 
 database.init_db()
@@ -65,7 +74,7 @@ ADMIN_NAME = os.environ.get('ADMIN_NAME', 'Continuous Internal Evaluation Admin 
 SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
 SMTP_PORT = int(os.environ.get('SMTP_PORT', 587))
 SMTP_USER = os.environ.get('SMTP_USER', 'rajushikalgar@gmail.com').strip()
-SMTP_PASS = os.environ.get('SMTP_PASS', 'yigagwcazdjjqxdy').strip().replace(' ', '')
+SMTP_PASS = os.environ.get('SMTP_PASS', '').strip().replace(' ', '')
 APP_BASE_URL = os.environ.get('APP_BASE_URL', 'https://rajekhan.in')
 
 def send_email_async(to_email, subject, html_content, text_content=None, from_email=None, from_name=None):
@@ -405,12 +414,47 @@ def send_admin_forgot_password_email(to_email, name, username, new_password):
     html = get_base_html_template("Admin Password Reset Successful", body)
     return send_email_async(to_email, subject, html, from_email=ADMIN_EMAIL, from_name=ADMIN_NAME)
 
-# ----------------- Session Helpers -----------------
+# ----------------- Token & Session Auth Helpers -----------------
+def get_auth_serializer():
+    return URLSafeTimedSerializer(app.secret_key)
+
+def generate_auth_token(role, user_id):
+    s = get_auth_serializer()
+    return s.dumps({'role': role, 'id': int(user_id), 'ts': time.time()})
+
+def decode_auth_token(token):
+    if not token:
+        return None
+    token = str(token).strip()
+    if token.startswith('Bearer '):
+        token = token[7:].strip()
+    s = get_auth_serializer()
+    try:
+        # Token valid for 30 days
+        data = s.loads(token, max_age=86400 * 30)
+        return data
+    except (BadSignature, SignatureExpired, Exception):
+        return None
+
+def extract_request_token():
+    return (
+        request.headers.get('Authorization') or
+        request.headers.get('X-Auth-Token') or
+        request.args.get('auth_token') or
+        request.form.get('auth_token')
+    )
+
 def get_current_teacher():
-    if 'teacher_id' in session:
+    t_id = session.get('teacher_id')
+    if not t_id:
+        tok_data = decode_auth_token(extract_request_token())
+        if tok_data and tok_data.get('role') == 'teacher':
+            t_id = tok_data.get('id')
+
+    if t_id:
         conn = database.get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM teachers WHERE id = ?", (session['teacher_id'],))
+        cursor.execute("SELECT * FROM teachers WHERE id = ?", (t_id,))
         row = cursor.fetchone()
         conn.close()
         if row and row['status'] == 'approved':
@@ -418,10 +462,16 @@ def get_current_teacher():
     return None
 
 def get_current_admin():
-    if 'admin_id' in session:
+    a_id = session.get('admin_id')
+    if not a_id:
+        tok_data = decode_auth_token(extract_request_token())
+        if tok_data and tok_data.get('role') == 'admin':
+            a_id = tok_data.get('id')
+
+    if a_id:
         conn = database.get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM admins WHERE id = ?", (session['admin_id'],))
+        cursor.execute("SELECT * FROM admins WHERE id = ?", (a_id,))
         row = cursor.fetchone()
         conn.close()
         if row:
@@ -477,6 +527,20 @@ def add_performance_and_compression_headers(response):
                     response.headers['Content-Length'] = len(compressed)
         except Exception:
             pass
+
+    # Cross-Origin, Third-party Cookie & Iframe Embedding Support
+    origin = request.headers.get('Origin')
+    if origin:
+        response.headers['Access-Control-Allow-Origin'] = origin
+    else:
+        response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Auth-Token, X-Requested-With, Accept, Origin'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    
+    # Allow embedding in Blogger, rajekhan.in, and all subdomains
+    response.headers.pop('X-Frame-Options', None)
+    response.headers['Content-Security-Policy'] = "frame-ancestors * https://rajekhan.in https://*.rajekhan.in https://*.blogger.com https://*.blogspot.com http://localhost:* http://127.0.0.1:*;"
 
     return response
 
@@ -622,10 +686,13 @@ def admin_login():
     session['admin_username'] = user['username']
     session['role'] = 'admin'
 
+    token = generate_auth_token('admin', user['id'])
+
     return jsonify({
         'success': True,
         'message': 'Admin login successful',
-        'admin': dict(user)
+        'admin': dict(user),
+        'token': token
     })
 
 @app.route('/api/admin/forgot-password', methods=['POST'])
@@ -1650,8 +1717,33 @@ def teacher_register():
     cursor.execute("SELECT id, status FROM teachers WHERE email = ?", (email,))
     existing = cursor.fetchone()
     if existing:
-        conn.close()
-        return jsonify({'error': f'A registration with email {email} already exists (Status: {existing["status"]}).'}), 409
+        if existing['status'] == 'rejected':
+            cursor.execute("SELECT id FROM teachers ORDER BY id DESC LIMIT 1")
+            last_t = cursor.fetchone()
+            next_num = (last_t['id'] + 1) if last_t else 1
+            teacher_code = database.generate_clean_teacher_code(final_subject, name, next_num)
+            cursor.execute("""
+            UPDATE teachers 
+            SET teacher_code = ?, name = ?, designation = ?, college_name = ?, university_name = ?,
+                faculty_stream = ?, custom_stream = ?, subject_name = ?, custom_subject = ?, mobile = ?,
+                status = 'pending', rejection_reason = NULL, extension_requested = 0
+            WHERE id = ?
+            """, (teacher_code, name, designation, college_name, university_name, final_stream, custom_stream, final_subject, custom_subject, mobile, existing['id']))
+            conn.commit()
+            conn.close()
+            return jsonify({
+                'message': 'Registration re-submitted successfully! Waiting for Administrator approval.',
+                'id': existing['id'],
+                'teacher_id': existing['id'],
+                'teacher_code': teacher_code
+            }), 200
+        else:
+            conn.close()
+            st = existing['status']
+            st_text = 'मंजूर (Approved - Already Active)' if st == 'approved' else ('प्रलंबित (Pending Admin Approval)' if st == 'pending' else st)
+            return jsonify({
+                'error': f'A faculty registration with email "{email}" already exists (Status: {st_text}). If you forgot your password, please use Forgot Password.'
+            }), 409
 
     cursor.execute("SELECT id FROM teachers ORDER BY id DESC LIMIT 1")
     last_t = cursor.fetchone()
@@ -1708,10 +1800,13 @@ def teacher_login():
     session['teacher_name'] = teacher['name']
     session['role'] = 'teacher'
 
+    token = generate_auth_token('teacher', teacher['id'])
+
     return jsonify({
         'success': True,
         'message': 'Login successful',
-        'teacher': dict(teacher)
+        'teacher': dict(teacher),
+        'token': token
     })
 
 @app.route('/api/teacher/forgot-password', methods=['POST'])

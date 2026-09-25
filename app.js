@@ -4,6 +4,44 @@
  */
 
 // =========================================================================
+// UNIVERSAL AUTH INTERCEPTOR (IFRAME & CROSS-ORIGIN COMPATIBILITY)
+// =========================================================================
+(function() {
+  const _origFetch = window.fetch;
+  window.fetch = function(url, options) {
+    options = options || {};
+    options.credentials = options.credentials || 'include';
+    
+    let adminTok = null;
+    let teacherTok = null;
+    try {
+      adminTok = localStorage.getItem('ciems_admin_token');
+      teacherTok = localStorage.getItem('ciems_teacher_token');
+    } catch(e) {}
+    
+    const activeToken = adminTok || teacherTok;
+    if (activeToken) {
+      if (!options.headers) {
+        options.headers = {
+          'Authorization': 'Bearer ' + activeToken,
+          'X-Auth-Token': activeToken
+        };
+      } else if (options.headers instanceof Headers) {
+        if (!options.headers.has('Authorization')) options.headers.set('Authorization', 'Bearer ' + activeToken);
+        if (!options.headers.has('X-Auth-Token')) options.headers.set('X-Auth-Token', activeToken);
+      } else if (Array.isArray(options.headers)) {
+        options.headers.push(['Authorization', 'Bearer ' + activeToken]);
+        options.headers.push(['X-Auth-Token', activeToken]);
+      } else if (typeof options.headers === 'object') {
+        if (!options.headers['Authorization']) options.headers['Authorization'] = 'Bearer ' + activeToken;
+        if (!options.headers['X-Auth-Token']) options.headers['X-Auth-Token'] = activeToken;
+      }
+    }
+    return _origFetch.apply(this, [url, options]);
+  };
+})();
+
+// =========================================================================
 // I18N MULTI-LANGUAGE DICTIONARY (ENGLISH & MARATHI)
 // =========================================================================
 const I18N = {
@@ -3465,6 +3503,9 @@ async function handleTeacherLogin(e) {
     }
 
     currentTeacher = data.teacher;
+    try {
+      if (data.token) localStorage.setItem('ciems_teacher_token', data.token);
+    } catch(e) {}
     updateTeacherProfileUI();
     await checkAuthStates();
     document.getElementById('teacher-login-box').classList.add('hidden');
@@ -3478,7 +3519,12 @@ async function handleTeacherLogin(e) {
 }
 
 async function handleTeacherLogout() {
-  await fetch('/api/teacher/logout', { method: 'POST' });
+  try {
+    await fetch('/api/teacher/logout', { method: 'POST' });
+  } catch(e) {}
+  try {
+    localStorage.removeItem('ciems_teacher_token');
+  } catch(e) {}
   currentTeacher = null;
   await checkAuthStates();
   navigateTo('landing');
@@ -7878,7 +7924,10 @@ async function handleAdminLogin(e) {
     }
 
     currentAdmin = data.admin;
-    try { localStorage.setItem('ciems_admin_session', JSON.stringify(data.admin)); } catch(e) {}
+    try {
+      if (data.token) localStorage.setItem('ciems_admin_token', data.token);
+      localStorage.setItem('ciems_admin_session', JSON.stringify(data.admin));
+    } catch(e) {}
     invalidateAdminCache();
     document.getElementById('admin-login-box')?.classList.add('hidden');
     document.getElementById('admin-dashboard-view')?.classList.remove('hidden');
@@ -7898,6 +7947,10 @@ async function handleAdminLogout() {
   try {
     await fetch('/api/admin/logout', { method: 'POST' });
   } catch (e) {}
+  try {
+    localStorage.removeItem('ciems_admin_token');
+    localStorage.removeItem('ciems_admin_session');
+  } catch(e) {}
   currentAdmin = null;
   invalidateAdminCache();
   await checkAuthStates();
@@ -7935,15 +7988,15 @@ function showAdminSection(secName) {
 
   try {
     if (secName === 'admin-overview') {
-      loadAdminDashboardStats(false);
+      loadAdminDashboardStats(true);
     } else if (secName === 'admin-pending' || secName === 'admin-approved') {
-      loadAdminTeachers(false);
+      loadAdminTeachers(true);
     } else if (secName === 'admin-faculty-search') {
-      loadAdminFacultySearch(false);
+      loadAdminFacultySearch(true);
     } else if (secName === 'admin-course-cie-mapping') {
       loadAdminMasterMappingData();
     } else if (secName === 'admin-announcements') {
-      loadAdminAnnouncements(false);
+      loadAdminAnnouncements(true);
     }
   } catch (e) {
     console.error('Admin section loader error:', e);
@@ -8394,21 +8447,26 @@ async function loadAdminTeachers(forceRefresh = false) {
   } catch (e) {
     console.error('Admin teachers error:', e);
   }
-}
-
 function renderAdminTeachers(data) {
   const all = data.teachers || [];
-  const pending = data.pending_teachers || all.filter(t => t.status === 'pending');
-  const approved = data.approved_teachers || all.filter(t => t.status !== 'pending');
+  const pendingAll = data.pending_teachers || all.filter(t => t.status === 'pending' || t.extension_requested);
+  const newRequests = data.new_requests || pendingAll.filter(t => !t.extension_requested);
+  const updateRequests = data.update_requests || pendingAll.filter(t => t.extension_requested || t.approval_type === 'update');
+  const approved = data.approved_teachers || all.filter(t => t.status === 'approved' && !t.extension_requested);
+
+  const filterType = window._adminApprovalFilter || 'all';
+  let pending = pendingAll;
+  if (filterType === 'new') pending = newRequests;
+  else if (filterType === 'update') pending = updateRequests;
 
   if (document.getElementById('admin-pending-badge')) {
-    document.getElementById('admin-pending-badge').innerText = `${pending.length} Pending`;
+    document.getElementById('admin-pending-badge').innerText = `${pendingAll.length} Pending`;
   }
   if (document.getElementById('admin-approved-badge')) {
     document.getElementById('admin-approved-badge').innerText = `${approved.length} Teachers`;
   }
   if (document.getElementById('admin-pending-nav-badge')) {
-    document.getElementById('admin-pending-nav-badge').innerText = `${pending.length}`;
+    document.getElementById('admin-pending-nav-badge').innerText = `${pendingAll.length}`;
   }
   if (document.getElementById('admin-approved-nav-badge')) {
     document.getElementById('admin-approved-nav-badge').innerText = `${approved.length}`;
