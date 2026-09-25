@@ -118,7 +118,8 @@ def _send_email_worker(to_email, subject, html_content, text_content=None, from_
             server.starttls()
             server.ehlo()
         server.login(SMTP_USER, SMTP_PASS)
-        server.sendmail(from_email, [to_email], msg.as_string())
+        sender_email = SMTP_USER if SMTP_USER else from_email
+        server.sendmail(sender_email, [to_email], msg.as_string())
         server.quit()
         print(f"[EMAIL DELIVERED] -> Email delivered successfully from {from_email} to {to_email}")
         return True
