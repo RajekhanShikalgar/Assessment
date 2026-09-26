@@ -2657,9 +2657,13 @@ body {
               </h3>
               <p class="text-xs text-slate-500 mt-0.5" data-i18n="roster_panel_sub">Manage class-wise student enrollment (Roll No, PRN, Name, Sex, Class, Email, Mobile). Linked seamlessly with course & subject mappings.</p>
             </div>
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center space-x-2 flex-wrap gap-y-2">
               <button type="button" onclick="toggleRosterForm()" class="btn-3d-glass px-3.5 py-2 text-slate-700 rounded-xl text-xs font-bold shadow-xs">
                 <i class="fa-solid fa-file-arrow-up text-teal-600 mr-1.5"></i> <span data-i18n="btn_bulk_import">Bulk Import / CSV</span>
+              </button>
+              <button type="button" onclick="openExportRosterModal()" class="btn-3d-glass px-3.5 py-2 text-indigo-800 bg-indigo-50/70 hover:bg-indigo-100 border border-indigo-200 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5" title="इतर शिक्षकांना देण्यासाठी किंवा सेव्ह करण्यासाठी विद्यार्थी हजेरीपट (Roster) CSV फाईल तयार करा">
+                <i class="fa-solid fa-file-arrow-down text-indigo-600"></i>
+                <span>Export Roster Data</span>
               </button>
               <button type="button" onclick="openAddStudentModal()" class="btn-3d-emerald px-4 py-2 text-white rounded-xl text-xs font-bold shadow-xs">
                 <i class="fa-solid fa-user-plus mr-1.5"></i> <span data-i18n="btn_add_student">+ Add Student</span>
@@ -2712,8 +2716,12 @@ body {
                 <span data-i18n="lbl_repeater_chk">Mark all in this batch as Repeaters / Ex-Students (पुनरावृत्ती विद्यार्थी)</span>
               </label>
 
-              <div class="flex space-x-2">
-                <button type="button" onclick="toggleRosterForm()" class="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 text-xs" data-i18n="btn_cancel">Cancel</button>
+              <div class="flex items-center space-x-2">
+                <button type="button" onclick="toggleRosterForm()" class="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 text-xs font-semibold" data-i18n="btn_cancel">Cancel</button>
+                <button type="button" onclick="openExportRosterModal()" class="btn-3d-glass px-3.5 py-2 text-indigo-800 bg-indigo-50/70 hover:bg-indigo-100 border border-indigo-200 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5" title="इतर शिक्षकांसाठी या वर्गाचे रोस्टर डाऊनलोड करा">
+                  <i class="fa-solid fa-file-arrow-down text-indigo-600"></i>
+                  <span>Export Roster Data</span>
+                </button>
                 <button type="button" onclick="handleBulkRosterUpload()" class="btn-3d-teal px-5 py-2 text-white font-bold rounded-xl text-xs shadow-xs">
                   <i class="fa-solid fa-upload mr-1"></i> <span data-i18n="btn_import_roster">Import Student Roster</span>
                 </button>
@@ -2728,7 +2736,7 @@ body {
               <div id="roster-class-pills" class="flex flex-wrap gap-1.5"></div>
             </div>
 
-            <div class="flex items-center space-x-3 shrink-0">
+            <div class="flex items-center space-x-3 shrink-0 flex-wrap gap-y-2">
               <select id="roster-filter-repeater" onchange="loadTeacherRoster()" class="rounded-xl border border-slate-300 p-2 text-xs bg-white">
                 <option value="">All Students (सर्व)</option>
                 <option value="0">Regular Only (नियमित)</option>
@@ -2740,6 +2748,11 @@ body {
                 <span class="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-800">Reg: <span id="roster-count-reg" class="font-mono">0</span></span>
                 <span class="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">Rep: <span id="roster-count-rep" class="font-mono">0</span></span>
               </div>
+
+              <button type="button" onclick="quickExportFilteredRoster()" class="btn-3d-glass px-2.5 py-1.5 text-indigo-800 bg-indigo-50/70 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs" title="सध्या निवडलेल्या वर्गाचे रोस्टर त्वरित CSV मध्ये डाऊनलोड करा">
+                <i class="fa-solid fa-file-arrow-down text-indigo-600 text-[11px]"></i>
+                <span>Download CSV</span>
+              </button>
             </div>
           </div>
 
@@ -4525,6 +4538,90 @@ body {
   <!-- ========================================================================= -->
   <!-- MODALS -->
   <!-- ========================================================================= -->
+
+  <!-- MODAL: EXPORT ROSTER DATA (इतर प्राध्यापकांना देण्यासाठी) -->
+  <div id="modal-export-roster" class="modal-overlay fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
+      
+      <div class="bg-gradient-to-r from-indigo-900 to-slate-900 p-4 text-white flex items-center justify-between">
+        <h3 class="text-sm font-bold flex items-center space-x-2">
+          <i class="fa-solid fa-file-export text-indigo-400"></i>
+          <span>विद्यार्थी हजेरीपट फाईल तयार करा (Export Roster Data)</span>
+        </h3>
+        <button onclick="closeExportRosterModal()" class="text-slate-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-5 overflow-y-auto space-y-4 text-xs">
+        
+        <div class="p-3.5 bg-indigo-50/80 rounded-xl border border-indigo-200 flex items-start gap-2.5">
+          <i class="fa-solid fa-circle-info text-indigo-600 text-sm mt-0.5 shrink-0"></i>
+          <p class="text-[11.5px] text-indigo-950 leading-relaxed">
+            <strong>इतर प्राध्यापकांसाठी सुसंगत (100% Import Ready):</strong><br>
+            ही डाऊनलोड झालेली <strong>.CSV</strong> फाईल आपण इतर शिक्षकांना देऊ शकता. ते शिक्षक त्यांच्या खात्यात जाऊन <em>"Bulk Import / CSV" ➔ "Upload CSV File"</em> निवडून एका सेकंदात हा संपूर्ण वर्ग थेट लोड करू शकतात!
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">शैक्षणिक वर्ष (Academic Year) *</label>
+            <input type="text" id="export-roster-year" value="2026–27" class="w-full rounded-xl border border-slate-300 p-2.5 bg-white font-semibold text-slate-800">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">वर्ग निवडा (Select Class) *</label>
+            <select id="export-roster-class" onchange="updateExportRosterPreview()" class="w-full rounded-xl border border-slate-300 p-2.5 bg-white font-bold text-slate-800">
+              <option value="all">सर्व वर्ग (All Enrolled Classes)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">विद्यार्थी प्रकार (Filter Students)</label>
+            <select id="export-roster-repeater" onchange="updateExportRosterPreview()" class="w-full rounded-xl border border-slate-300 p-2.5 bg-white">
+              <option value="">सर्व विद्यार्थी (Regular + Repeaters)</option>
+              <option value="0">केवळ नियमित विद्यार्थी (Regular Only)</option>
+              <option value="1">केवळ रिपीटर विद्यार्थी (Repeaters Only)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">एकूण नोंदी (Records to Export)</label>
+            <div id="export-roster-count-badge" class="w-full p-2.5 bg-slate-100 rounded-xl font-mono font-bold text-indigo-900 border border-slate-200 flex items-center justify-between">
+              <span>एकूण विद्यार्थी:</span>
+              <span id="export-roster-count" class="text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Format Preview -->
+        <div class="space-y-1">
+          <label class="block font-semibold text-slate-700 text-[11px]">CSV फॉरमॅट पूर्वदृश्य (File Format Preview):</label>
+          <div class="p-2.5 bg-slate-800 text-emerald-400 font-mono text-[10.5px] rounded-xl overflow-x-auto leading-relaxed border border-slate-700">
+            <div>Roll No, PRN, Student Name, Gender, Email, Mobile, Division</div>
+            <div id="export-roster-preview-row" class="text-slate-400">101, 2024016400012345, Ramesh Patil, Male, ramesh@gmail.com, 9876543210, A</div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-col sm:flex-row items-center justify-end gap-2 pt-3 border-t border-slate-200">
+          <button type="button" onclick="closeExportRosterModal()" class="w-full sm:w-auto px-4 py-2 border border-slate-300 rounded-xl text-slate-700 font-medium hover:bg-slate-100 text-xs">रद्द करा (Close)</button>
+          
+          <button type="button" onclick="copyExportRosterClipboard()" class="w-full sm:w-auto btn-3d-glass px-4 py-2 text-slate-800 font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-xs border border-slate-300 hover:bg-slate-50 text-xs" title="WhatsApp किंवा ईमेलवर पाठवण्यासाठी सर्व ओळी कॉपी करा">
+            <i class="fa-solid fa-copy text-indigo-600"></i>
+            <span>मजकूर कॉपी करा (Copy Rows)</span>
+          </button>
+          
+          <button type="button" onclick="executeRosterExportDownload()" class="w-full sm:w-auto btn-3d-indigo px-5 py-2 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-md text-xs">
+            <i class="fa-solid fa-file-arrow-down"></i>
+            <span>CSV फाईल डाऊनलोड करा (Download)</span>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
 
   <!-- MODAL 1: ADD SINGLE STUDENT -->
   <div id="modal-add-student" class="modal-overlay fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 items-center justify-center p-4 hidden">
@@ -11321,6 +11418,7 @@ async function loadTeacherRoster() {
     const data = await res.json();
     const list = data.roster || [];
     const classes = data.classes || [];
+    window.teacherRosterClasses = classes;
 
     // Render interactive multi-class pills
     renderClassFilterPills('roster-class-pills', classes, selectedRosterClasses, () => loadTeacherRoster());
@@ -11380,6 +11478,187 @@ async function deleteRosterStudent(id) {
   } catch (e) {
     showToast('Network error while removing student.', 'error');
   }
+}
+
+// ------------------- TAB 1.1: ROSTER EXPORT DATA (इतर प्राध्यापकांसाठी) -------------------
+async function openExportRosterModal() {
+  const m = document.getElementById('modal-export-roster');
+  if (!m) return;
+
+  // Set academic year if available
+  const yearInput = document.getElementById('export-roster-year');
+  const rosterYear = document.getElementById('roster-year');
+  if (yearInput && rosterYear && rosterYear.value) {
+    yearInput.value = rosterYear.value.trim();
+  }
+
+  // Populate class dropdown
+  const classSelect = document.getElementById('export-roster-class');
+  if (classSelect) {
+    let classes = window.teacherRosterClasses || [];
+    if (!classes || classes.length === 0) {
+      try {
+        const res = await fetch('/api/teacher/roster');
+        const data = await res.json();
+        classes = data.classes || [];
+        window.teacherRosterClasses = classes;
+      } catch (err) {
+        console.error('Error fetching roster classes for export:', err);
+      }
+    }
+
+    let optionsHtml = '<option value="all">सर्व वर्ग (All Enrolled Classes)</option>';
+    classes.forEach(c => {
+      optionsHtml += `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`;
+    });
+    classSelect.innerHTML = optionsHtml;
+
+    // Default select active filtered class if single class is filtered
+    if (window.selectedRosterClasses && window.selectedRosterClasses.size === 1) {
+      const activeClass = Array.from(window.selectedRosterClasses)[0];
+      if (classes.includes(activeClass)) {
+        classSelect.value = activeClass;
+      }
+    }
+  }
+
+  await updateExportRosterPreview();
+
+  m.classList.remove('hidden');
+  m.classList.add('open');
+}
+
+function closeExportRosterModal() {
+  const m = document.getElementById('modal-export-roster');
+  if (m) {
+    m.classList.remove('open');
+    m.classList.add('hidden');
+  }
+}
+
+async function updateExportRosterPreview() {
+  const classSelect = document.getElementById('export-roster-class');
+  const repeaterSelect = document.getElementById('export-roster-repeater');
+  const countBadge = document.getElementById('export-roster-count');
+  const previewRow = document.getElementById('export-roster-preview-row');
+
+  const selectedClass = classSelect ? classSelect.value : 'all';
+  const repeaterVal = repeaterSelect ? repeaterSelect.value : '';
+
+  try {
+    let url = '/api/teacher/roster?';
+    if (selectedClass && selectedClass !== 'all') {
+      url += `class_name=${encodeURIComponent(selectedClass)}&`;
+    }
+    if (repeaterVal !== '') {
+      url += `is_repeater=${encodeURIComponent(repeaterVal)}&`;
+    }
+
+    const res = await fetch(url);
+    const data = await res.json();
+    const students = data.roster || [];
+
+    if (countBadge) {
+      countBadge.innerText = students.length;
+    }
+
+    if (previewRow) {
+      if (students.length > 0) {
+        const s = students[0];
+        previewRow.innerText = `${s.roll_number || '1'}, ${s.prn || 'PRN'}, ${s.student_name || 'Name'}, ${s.gender || 'Male'}, ${s.email || ''}, ${s.mobile || ''}, ${s.division || 'A'}`;
+      } else {
+        previewRow.innerText = 'या निकषात कोणतेही विद्यार्थी उपलब्ध नाहीत (No students found)';
+      }
+    }
+  } catch (err) {
+    console.error('Error updating export roster preview:', err);
+  }
+}
+
+function executeRosterExportDownload() {
+  const classSelect = document.getElementById('export-roster-class');
+  const repeaterSelect = document.getElementById('export-roster-repeater');
+  const yearInput = document.getElementById('export-roster-year');
+
+  const selectedClass = classSelect ? classSelect.value : 'all';
+  const repeaterVal = repeaterSelect ? repeaterSelect.value : '';
+  const academicYear = yearInput ? yearInput.value.trim() : '2026–27';
+
+  let url = `/api/teacher/roster/export?class_name=${encodeURIComponent(selectedClass)}&academic_year=${encodeURIComponent(academicYear)}`;
+  if (repeaterVal !== '') {
+    url += `&is_repeater=${encodeURIComponent(repeaterVal)}`;
+  }
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.setAttribute('download', '');
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  showToast('विद्यार्थी हजेरीपट (Roster) CSV फाईल डाऊनलोड झाली आहे!', 'success');
+  closeExportRosterModal();
+}
+
+async function copyExportRosterClipboard() {
+  const classSelect = document.getElementById('export-roster-class');
+  const repeaterSelect = document.getElementById('export-roster-repeater');
+
+  const selectedClass = classSelect ? classSelect.value : 'all';
+  const repeaterVal = repeaterSelect ? repeaterSelect.value : '';
+
+  try {
+    let url = '/api/teacher/roster?';
+    if (selectedClass && selectedClass !== 'all') {
+      url += `class_name=${encodeURIComponent(selectedClass)}&`;
+    }
+    if (repeaterVal !== '') {
+      url += `is_repeater=${encodeURIComponent(repeaterVal)}&`;
+    }
+
+    const res = await fetch(url);
+    const data = await res.json();
+    const students = data.roster || [];
+
+    if (students.length === 0) {
+      showToast('कॉपी करण्यासाठी विद्यार्थी डेटा उपलब्ध नाही (No students to copy)', 'error');
+      return;
+    }
+
+    let csvLines = ['Roll No, PRN, Student Name, Gender, Email, Mobile, Division'];
+    students.forEach(s => {
+      csvLines.push(`${s.roll_number || ''}, ${s.prn || ''}, ${s.student_name || ''}, ${s.gender || 'Unspecified'}, ${s.email || ''}, ${s.mobile || ''}, ${s.division || 'A'}`);
+    });
+
+    const fullText = csvLines.join('\n');
+    await navigator.clipboard.writeText(fullText);
+    showToast(`एकूण ${students.length} विद्यार्थ्यांच्या ओळी क्लिपबोर्डवर यशस्वीरित्या कॉपी झाल्या! आपण आता WhatsApp किंवा ई-मेलवर पेस्ट करू शकता.`, 'success');
+  } catch (err) {
+    console.error('Clipboard copy error:', err);
+    showToast('क्लिपबोर्डवर कॉपी करताना त्रुटी आली.', 'error');
+  }
+}
+
+function quickExportFilteredRoster() {
+  const classFilter = (window.selectedRosterClasses && window.selectedRosterClasses.size > 0)
+    ? Array.from(window.selectedRosterClasses).join(',')
+    : 'all';
+  const repFilter = document.getElementById('roster-filter-repeater')?.value || '';
+  const year = document.getElementById('roster-year')?.value || '2026–27';
+
+  let url = `/api/teacher/roster/export?class_name=${encodeURIComponent(classFilter)}&academic_year=${encodeURIComponent(year)}`;
+  if (repFilter !== '') {
+    url += `&is_repeater=${encodeURIComponent(repFilter)}`;
+  }
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.setAttribute('download', '');
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  showToast('सध्याच्या फिल्टरनुसार विद्यार्थी हजेरीपट CSV डाऊनलोड झाली!', 'success');
 }
 
 // ------------------- TAB 2: UNIFIED SUBJECT & ASSIGNMENT MAPPING -------------------

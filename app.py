@@ -3560,6 +3560,12 @@ def bulk_student_roster():
             errors.append(f"Line {line_idx}: Needs at least Roll No, PRN, Name")
             continue
 
+        # Automatically skip header row (e.g., Roll No, PRN, Student Name)
+        clean_p0 = parts[0].lower().replace(' ', '').replace('.', '').replace('_', '')
+        clean_p1 = parts[1].lower().replace(' ', '').replace('.', '').replace('_', '')
+        if clean_p0 in {'rollno', 'rollnumber', 'srno', 'sr', 'no', 'अनुक्रमांक', 'roll'} or clean_p1 in {'prn', 'enrollment', 'prnno', 'नोंदणीक्रमांक', 'prnenrollment'}:
+            continue
+
         roll_no = parts[0]
         prn = parts[1]
         name = parts[2]
@@ -3627,6 +3633,66 @@ def get_roster():
 
     conn.close()
     return jsonify({'roster': students, 'classes': distinct_classes, 'count': len(students)})
+
+@app.route('/api/teacher/roster/export', methods=['GET'])
+@teacher_required
+def export_roster_csv():
+    teacher = get_current_teacher()
+    class_name_raw = str(request.args.get('class_name') or '').strip()
+    is_repeater = request.args.get('is_repeater')
+    academic_year = str(request.args.get('academic_year') or '').strip()
+
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+    sql = "SELECT roll_number, prn, student_name, gender, email, mobile, division, class_name, academic_year, is_repeater FROM teacher_rosters WHERE teacher_id = ?"
+    params = [teacher['id']]
+
+    if class_name_raw and class_name_raw.lower() not in ('all', 'सर्व'):
+        classes = [c.strip() for c in class_name_raw.split(',') if c.strip()]
+        if classes:
+            placeholders = ','.join('?' for _ in classes)
+            sql += f" AND class_name IN ({placeholders})"
+            params.extend(classes)
+
+    if academic_year:
+        sql += " AND academic_year = ?"
+        params.append(academic_year)
+
+    if is_repeater is not None and is_repeater != '':
+        sql += " AND is_repeater = ?"
+        params.append(int(is_repeater))
+
+    sql += " ORDER BY class_name ASC, CAST(roll_number AS INTEGER) ASC, student_name ASC"
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+    conn.close()
+
+    si = io.StringIO()
+    # Write UTF-8 BOM so Excel opens Devanagari text properly without encoding errors
+    si.write('\ufeff')
+    writer = csv.writer(si)
+    writer.writerow(['Roll No', 'PRN', 'Student Name', 'Gender', 'Email', 'Mobile', 'Division'])
+    for r in rows:
+        writer.writerow([
+            r['roll_number'] or '',
+            r['prn'] or '',
+            r['student_name'] or '',
+            r['gender'] or 'Unspecified',
+            r['email'] or '',
+            r['mobile'] or '',
+            r['division'] or 'A'
+        ])
+
+    csv_data = si.getvalue()
+    safe_class = re.sub(r'[^a-zA-Z0-9_-]', '_', class_name_raw) if class_name_raw and class_name_raw.lower() != 'all' else 'All_Classes'
+    safe_year = re.sub(r'[^a-zA-Z0-9_-]', '_', academic_year) if academic_year else 'Roster'
+    filename = f"CIEMS_Roster_{safe_class}_{safe_year}.csv"
+
+    return Response(
+        csv_data.encode('utf-8'),
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 @app.route('/api/teacher/roster/<int:roster_id>', methods=['DELETE'])
 @app.route('/api/teacher/student/<int:roster_id>', methods=['DELETE'])

@@ -5033,6 +5033,7 @@ async function loadTeacherRoster() {
     const data = await res.json();
     const list = data.roster || [];
     const classes = data.classes || [];
+    window.teacherRosterClasses = classes;
 
     // Render interactive multi-class pills
     renderClassFilterPills('roster-class-pills', classes, selectedRosterClasses, () => loadTeacherRoster());
@@ -5092,6 +5093,187 @@ async function deleteRosterStudent(id) {
   } catch (e) {
     showToast('Network error while removing student.', 'error');
   }
+}
+
+// ------------------- TAB 1.1: ROSTER EXPORT DATA (इतर प्राध्यापकांसाठी) -------------------
+async function openExportRosterModal() {
+  const m = document.getElementById('modal-export-roster');
+  if (!m) return;
+
+  // Set academic year if available
+  const yearInput = document.getElementById('export-roster-year');
+  const rosterYear = document.getElementById('roster-year');
+  if (yearInput && rosterYear && rosterYear.value) {
+    yearInput.value = rosterYear.value.trim();
+  }
+
+  // Populate class dropdown
+  const classSelect = document.getElementById('export-roster-class');
+  if (classSelect) {
+    let classes = window.teacherRosterClasses || [];
+    if (!classes || classes.length === 0) {
+      try {
+        const res = await fetch('/api/teacher/roster');
+        const data = await res.json();
+        classes = data.classes || [];
+        window.teacherRosterClasses = classes;
+      } catch (err) {
+        console.error('Error fetching roster classes for export:', err);
+      }
+    }
+
+    let optionsHtml = '<option value="all">सर्व वर्ग (All Enrolled Classes)</option>';
+    classes.forEach(c => {
+      optionsHtml += `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`;
+    });
+    classSelect.innerHTML = optionsHtml;
+
+    // Default select active filtered class if single class is filtered
+    if (window.selectedRosterClasses && window.selectedRosterClasses.size === 1) {
+      const activeClass = Array.from(window.selectedRosterClasses)[0];
+      if (classes.includes(activeClass)) {
+        classSelect.value = activeClass;
+      }
+    }
+  }
+
+  await updateExportRosterPreview();
+
+  m.classList.remove('hidden');
+  m.classList.add('open');
+}
+
+function closeExportRosterModal() {
+  const m = document.getElementById('modal-export-roster');
+  if (m) {
+    m.classList.remove('open');
+    m.classList.add('hidden');
+  }
+}
+
+async function updateExportRosterPreview() {
+  const classSelect = document.getElementById('export-roster-class');
+  const repeaterSelect = document.getElementById('export-roster-repeater');
+  const countBadge = document.getElementById('export-roster-count');
+  const previewRow = document.getElementById('export-roster-preview-row');
+
+  const selectedClass = classSelect ? classSelect.value : 'all';
+  const repeaterVal = repeaterSelect ? repeaterSelect.value : '';
+
+  try {
+    let url = '/api/teacher/roster?';
+    if (selectedClass && selectedClass !== 'all') {
+      url += `class_name=${encodeURIComponent(selectedClass)}&`;
+    }
+    if (repeaterVal !== '') {
+      url += `is_repeater=${encodeURIComponent(repeaterVal)}&`;
+    }
+
+    const res = await fetch(url);
+    const data = await res.json();
+    const students = data.roster || [];
+
+    if (countBadge) {
+      countBadge.innerText = students.length;
+    }
+
+    if (previewRow) {
+      if (students.length > 0) {
+        const s = students[0];
+        previewRow.innerText = `${s.roll_number || '1'}, ${s.prn || 'PRN'}, ${s.student_name || 'Name'}, ${s.gender || 'Male'}, ${s.email || ''}, ${s.mobile || ''}, ${s.division || 'A'}`;
+      } else {
+        previewRow.innerText = 'या निकषात कोणतेही विद्यार्थी उपलब्ध नाहीत (No students found)';
+      }
+    }
+  } catch (err) {
+    console.error('Error updating export roster preview:', err);
+  }
+}
+
+function executeRosterExportDownload() {
+  const classSelect = document.getElementById('export-roster-class');
+  const repeaterSelect = document.getElementById('export-roster-repeater');
+  const yearInput = document.getElementById('export-roster-year');
+
+  const selectedClass = classSelect ? classSelect.value : 'all';
+  const repeaterVal = repeaterSelect ? repeaterSelect.value : '';
+  const academicYear = yearInput ? yearInput.value.trim() : '2026–27';
+
+  let url = `/api/teacher/roster/export?class_name=${encodeURIComponent(selectedClass)}&academic_year=${encodeURIComponent(academicYear)}`;
+  if (repeaterVal !== '') {
+    url += `&is_repeater=${encodeURIComponent(repeaterVal)}`;
+  }
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.setAttribute('download', '');
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  showToast('विद्यार्थी हजेरीपट (Roster) CSV फाईल डाऊनलोड झाली आहे!', 'success');
+  closeExportRosterModal();
+}
+
+async function copyExportRosterClipboard() {
+  const classSelect = document.getElementById('export-roster-class');
+  const repeaterSelect = document.getElementById('export-roster-repeater');
+
+  const selectedClass = classSelect ? classSelect.value : 'all';
+  const repeaterVal = repeaterSelect ? repeaterSelect.value : '';
+
+  try {
+    let url = '/api/teacher/roster?';
+    if (selectedClass && selectedClass !== 'all') {
+      url += `class_name=${encodeURIComponent(selectedClass)}&`;
+    }
+    if (repeaterVal !== '') {
+      url += `is_repeater=${encodeURIComponent(repeaterVal)}&`;
+    }
+
+    const res = await fetch(url);
+    const data = await res.json();
+    const students = data.roster || [];
+
+    if (students.length === 0) {
+      showToast('कॉपी करण्यासाठी विद्यार्थी डेटा उपलब्ध नाही (No students to copy)', 'error');
+      return;
+    }
+
+    let csvLines = ['Roll No, PRN, Student Name, Gender, Email, Mobile, Division'];
+    students.forEach(s => {
+      csvLines.push(`${s.roll_number || ''}, ${s.prn || ''}, ${s.student_name || ''}, ${s.gender || 'Unspecified'}, ${s.email || ''}, ${s.mobile || ''}, ${s.division || 'A'}`);
+    });
+
+    const fullText = csvLines.join('\n');
+    await navigator.clipboard.writeText(fullText);
+    showToast(`एकूण ${students.length} विद्यार्थ्यांच्या ओळी क्लिपबोर्डवर यशस्वीरित्या कॉपी झाल्या! आपण आता WhatsApp किंवा ई-मेलवर पेस्ट करू शकता.`, 'success');
+  } catch (err) {
+    console.error('Clipboard copy error:', err);
+    showToast('क्लिपबोर्डवर कॉपी करताना त्रुटी आली.', 'error');
+  }
+}
+
+function quickExportFilteredRoster() {
+  const classFilter = (window.selectedRosterClasses && window.selectedRosterClasses.size > 0)
+    ? Array.from(window.selectedRosterClasses).join(',')
+    : 'all';
+  const repFilter = document.getElementById('roster-filter-repeater')?.value || '';
+  const year = document.getElementById('roster-year')?.value || '2026–27';
+
+  let url = `/api/teacher/roster/export?class_name=${encodeURIComponent(classFilter)}&academic_year=${encodeURIComponent(year)}`;
+  if (repFilter !== '') {
+    url += `&is_repeater=${encodeURIComponent(repFilter)}`;
+  }
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.setAttribute('download', '');
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  showToast('सध्याच्या फिल्टरनुसार विद्यार्थी हजेरीपट CSV डाऊनलोड झाली!', 'success');
 }
 
 // ------------------- TAB 2: UNIFIED SUBJECT & ASSIGNMENT MAPPING -------------------
