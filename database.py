@@ -1147,6 +1147,7 @@ def seed_database():
     cursor.execute(f"DELETE FROM created_assessments WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
     cursor.execute(f"DELETE FROM teacher_assignment_mappings WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
     cursor.execute(f"DELETE FROM teacher_subjects WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
+    cursor.execute(f"DELETE FROM student_connections WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
     cursor.execute(f"DELETE FROM teacher_rosters WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
     cursor.execute(f"DELETE FROM teacher_study_materials WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond})")
     cursor.execute(f"DELETE FROM student_dismissed_announcements WHERE announcement_id IN (SELECT id FROM teacher_announcements WHERE teacher_id IN (SELECT id FROM teachers WHERE {dummy_cond}))")

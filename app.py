@@ -1186,6 +1186,78 @@ def _parse_bilingual_text(val):
         return {'en': en_part, 'mr': mr_part}
     return {'en': s, 'mr': s}
 
+def resolve_canonical_student_clusters(cursor):
+    """
+    Intelligent Entity Resolution for students across teachers and classes.
+    Uses Disjoint-Set Union (Union-Find) to link records sharing either:
+    1. Normalized Email ID (case-insensitive, trimmed)
+    2. Normalized PRN / Enrollment Number (case-insensitive, trimmed)
+    3. Fallback: Normalized Name + Roll Number
+    
+    This handles real-world university cases where Teacher 1 inputs Enrollment No + Email,
+    and Teacher 2 inputs University PRN + Email, ensuring they collapse into EXACTLY 1 unique student.
+    """
+    cursor.execute('''
+        SELECT id, teacher_id, class_name, roll_number, prn, student_name, email
+        FROM teacher_rosters
+        WHERE (prn IS NOT NULL AND TRIM(prn) != "") 
+           OR (email IS NOT NULL AND TRIM(email) != "")
+           OR (student_name IS NOT NULL AND TRIM(student_name) != "")
+    ''')
+    rows = cursor.fetchall()
+    
+    parent = {}
+    def find(x):
+        if x not in parent:
+            parent[x] = x
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(x, y):
+        rx, ry = find(x), find(y)
+        if rx != ry:
+            parent[rx] = ry
+
+    for r in rows:
+        rid = r['id']
+        row_node = f'row:{rid}'
+        p = str(r['prn'] or '').strip().lower()
+        e = str(r['email'] or '').strip().lower()
+        name = str(r['student_name'] or '').strip().lower()
+        roll = str(r['roll_number'] or '').strip().lower()
+
+        if e and '@' in e:
+            union(row_node, f'email:{e}')
+        if p:
+            union(row_node, f'prn:{p}')
+        if not e and not p and name:
+            union(row_node, f'name_roll:{name}_{roll}')
+
+    teacher_student_keys = {}
+    class_student_keys = {}
+    all_unique_students = set()
+
+    for r in rows:
+        rid = r['id']
+        tid = r['teacher_id']
+        cname = r['class_name']
+        skey = find(f'row:{rid}')
+        
+        all_unique_students.add(skey)
+
+        if tid not in teacher_student_keys:
+            teacher_student_keys[tid] = set()
+        teacher_student_keys[tid].add(skey)
+
+        pair = (tid, cname)
+        if pair not in class_student_keys:
+            class_student_keys[pair] = set()
+        class_student_keys[pair].add(skey)
+
+    return len(all_unique_students), teacher_student_keys, class_student_keys
+
 @app.route('/api/admin/dashboard-stats')
 @admin_required
 def get_admin_dashboard_stats():
@@ -1204,8 +1276,8 @@ def get_admin_dashboard_stats():
     cursor.execute('SELECT COUNT(*) FROM teachers WHERE status = "pending" OR extension_requested = 1')
     pending_teachers = cursor.fetchone()[0]
     
-    cursor.execute('SELECT COUNT(DISTINCT prn) FROM teacher_rosters')
-    total_students = cursor.fetchone()[0]
+    # Intelligent Multi-Identifier Fusion (Email + PRN + Name/Roll)
+    total_students, teacher_student_keys, class_student_keys = resolve_canonical_student_clusters(cursor)
     
     cursor.execute('SELECT COUNT(*) FROM created_assessments')
     total_assessments = cursor.fetchone()[0]
@@ -1402,12 +1474,8 @@ def get_admin_dashboard_stats():
     teachers = {t['id']: t for t in teachers_raw}
     all_teachers = [t for t in teachers_raw if t.get('status') != 'pending']
 
-    # Pre-fetch teacher_rosters student counts per (teacher_id, class_name) in 1 query
-    cursor.execute('SELECT teacher_id, class_name, COUNT(DISTINCT prn) as s_count FROM teacher_rosters GROUP BY teacher_id, class_name')
-    roster_counts = {(r['teacher_id'], r['class_name']): r['s_count'] for r in cursor.fetchall()}
-
-    cursor.execute('SELECT teacher_id, COUNT(DISTINCT prn) as s_count FROM teacher_rosters GROUP BY teacher_id')
-    teacher_student_counts = {r['teacher_id']: r['s_count'] for r in cursor.fetchall()}
+    # teacher_student_keys and class_student_keys are already pre-computed above
+    # with intelligent Multi-Identifier Fusion (Email + PRN + Name/Roll) via resolve_canonical_student_clusters
 
     # Pre-fetch teacher_subjects with teacher info in 1 query
     cursor.execute("""
@@ -1517,10 +1585,16 @@ def get_admin_dashboard_stats():
         approved_faculty = sum(1 for tid in sdata['teacher_ids'] if teachers.get(tid, {}).get('status') != 'pending' and not teachers.get(tid, {}).get('extension_requested'))
         pending_faculty = sum(1 for tid in sdata['teacher_ids'] if teachers.get(tid, {}).get('status') == 'pending' or teachers.get(tid, {}).get('extension_requested'))
         
+        sub_student_keys = set()
         if sdata['classes']:
-            st_count = sum(roster_counts.get(cls, 0) for cls in sdata['classes'])
-        else:
-            st_count = sum(teacher_student_counts.get(tid, 0) for tid in sdata['teacher_ids'])
+            for cls in sdata['classes']:
+                if cls in class_student_keys:
+                    sub_student_keys.update(class_student_keys[cls])
+        if not sub_student_keys and sdata['teacher_ids']:
+            for tid in sdata['teacher_ids']:
+                if tid in teacher_student_keys:
+                    sub_student_keys.update(teacher_student_keys[tid])
+        st_count = len(sub_student_keys)
         
         courses_count = len(sdata['course_ids'])
         asm_count = len(sdata['asm_ids'])
@@ -1583,7 +1657,11 @@ def get_admin_dashboard_stats():
     for ukey, udata in uni_map.items():
         approved_faculty = sum(1 for tid in udata['teacher_ids'] if teachers.get(tid, {}).get('status') != 'pending' and not teachers.get(tid, {}).get('extension_requested'))
         pending_faculty = sum(1 for tid in udata['teacher_ids'] if teachers.get(tid, {}).get('status') == 'pending' or teachers.get(tid, {}).get('extension_requested'))
-        students_count = sum(teacher_student_counts.get(tid, 0) for tid in udata['teacher_ids'])
+        uni_student_keys = set()
+        for tid in udata['teacher_ids']:
+            if tid in teacher_student_keys:
+                uni_student_keys.update(teacher_student_keys[tid])
+        students_count = len(uni_student_keys)
         courses_count = sum(1 for ts in all_ts if ts['teacher_id'] in udata['teacher_ids'])
         asm_count = sum(assessments_by_teacher.get(tid, 0) for tid in udata['teacher_ids'])
         sub_count = sum(sub_count_by_teacher.get(tid, 0) for tid in udata['teacher_ids'])
@@ -1652,11 +1730,12 @@ def get_admin_dashboard_stats():
                             'subject_name': sname,
                             'teacher_ids': set(),
                             'course_ids': set(),
-                            'students_count': 0
+                            'classes': set()
                         }
                     db_subjects[sname]['teacher_ids'].add(ts['teacher_id'])
                     db_subjects[sname]['course_ids'].add(ts['id'])
-                    db_subjects[sname]['students_count'] += roster_counts.get((ts['teacher_id'], ts['class_name']), 0)
+                    if ts.get('class_name'):
+                        db_subjects[sname]['classes'].add((ts['teacher_id'], ts['class_name']))
 
         for t in all_teachers:
             t_stream = str(t.get('faculty_stream') or '').lower()
@@ -1675,7 +1754,7 @@ def get_admin_dashboard_stats():
                             'subject_name': sname,
                             'teacher_ids': {t['id']},
                             'course_ids': set(),
-                            'students_count': 0
+                            'classes': set()
                         }
                     else:
                         db_subjects[sname]['teacher_ids'].add(t['id'])
@@ -1685,11 +1764,20 @@ def get_admin_dashboard_stats():
 
         subject_list = []
         for sname, sinfo in db_subjects.items():
+            sub_st_keys = set()
+            for cls in sinfo.get('classes', []):
+                if cls in class_student_keys:
+                    sub_st_keys.update(class_student_keys[cls])
+            if not sub_st_keys and sinfo.get('teacher_ids'):
+                for tid in sinfo['teacher_ids']:
+                    if tid in teacher_student_keys:
+                        sub_st_keys.update(teacher_student_keys[tid])
+
             subject_list.append({
                 'subject_name': sname,
                 'teacher_count': len(sinfo['teacher_ids']),
                 'courses_count': len(sinfo['course_ids']),
-                'students_count': sinfo['students_count'],
+                'students_count': len(sub_st_keys),
                 'is_active': True
             })
         for msub in master_subs:
@@ -1702,6 +1790,17 @@ def get_admin_dashboard_stats():
                     'is_active': False
                 })
 
+        stream_teacher_ids = set()
+        for sinfo in db_subjects.values():
+            stream_teacher_ids.update(sinfo['teacher_ids'])
+        
+        stream_student_keys = set()
+        for tid in stream_teacher_ids:
+            if tid in teacher_student_keys:
+                stream_student_keys.update(teacher_student_keys[tid])
+
+        stream_st_count = len(stream_student_keys) if stream_student_keys else (total_students if t_cnt > 0 else 0)
+
         stream_breakdown.append({
             'stream_key': s_key,
             'name_en': s_def['name_en'],
@@ -1709,7 +1808,7 @@ def get_admin_dashboard_stats():
             'faculty_stream': s_def['name_mr'],
             'teacher_count': t_cnt,
             'teachers_count': t_cnt,
-            'students_count': sum(s['students_count'] for s in subject_list) or (total_students if t_cnt > 0 else 0),
+            'students_count': stream_st_count,
             'courses_count': sum(s['courses_count'] for s in subject_list) or (total_courses if t_cnt > 0 else 0),
             'assessments_count': total_assessments if t_cnt > 0 else 0,
             'subjects': subject_list,
@@ -3947,12 +4046,15 @@ def add_single_student_roster():
     prn = str(data.get('prn', '')).strip()
     student_name = str(data.get('student_name') or data.get('name') or '').strip()
     gender = data.get('gender', 'Male')
-    email = str(data.get('email', '')).strip()
+    email = str(data.get('email', '')).strip().lower()
     mobile = str(data.get('mobile', '')).strip()
     is_repeater = 1 if data.get('is_repeater') else 0
 
-    if not (class_name and roll_number and prn and student_name):
-        return jsonify({'error': 'Please fill Class, Roll Number, PRN, and Student Name.'}), 400
+    if not (class_name and roll_number and prn and student_name and email):
+        return jsonify({'error': 'Class, Roll Number, PRN/Enrollment, Student Name, and Email ID are mandatory. (कृपया इयत्ता, रोल नंबर, PRN, विद्यार्थ्याचे नाव आणि ईमेल आयडी प्रविष्ट करा.)'}), 400
+
+    if '@' not in email or '.' not in email or len(email) < 5:
+        return jsonify({'error': 'Please enter a valid student Email ID (उदा. student@gmail.com).'}), 400
 
     conn = database.get_db_connection()
     cursor = conn.cursor()
@@ -4012,7 +4114,7 @@ def bulk_student_roster():
             parts = [p.strip() for p in next(reader, [])]
 
         if len(parts) < 3:
-            errors.append(f"Line {line_idx}: Needs at least Roll No, PRN, Name")
+            errors.append(f"Line {line_idx}: Needs at least Roll No, PRN/Enrollment, Name, Email")
             continue
 
         # Automatically skip header row (e.g., Roll No, PRN, Student Name)
@@ -4024,10 +4126,30 @@ def bulk_student_roster():
         roll_no = parts[0]
         prn = parts[1]
         name = parts[2]
-        gender = parts[3] if len(parts) > 3 else 'Unspecified'
-        email = parts[4] if len(parts) > 4 else ''
-        mobile = parts[5] if len(parts) > 5 else ''
-        division = parts[6] if len(parts) > 6 else 'A'
+
+        # Dynamically extract email, gender, mobile, division from remaining parts
+        gender = 'Male'
+        email = ''
+        mobile = ''
+        division = 'A'
+
+        for p in parts[3:]:
+            p_clean = p.strip()
+            if '@' in p_clean and '.' in p_clean and not email:
+                email = p_clean.lower()
+            elif p_clean.lower() in {'male', 'female', 'other', 'मुलगा', 'मुलगी'}:
+                gender = 'Male' if p_clean.lower() in {'male', 'मुलगा'} else ('Female' if p_clean.lower() in {'female', 'मुलगी'} else 'Other')
+            elif re.match(r'^\d{10}$', p_clean) and not mobile:
+                mobile = p_clean
+            elif len(p_clean) <= 2 and p_clean.isalpha() and division == 'A':
+                division = p_clean.upper()
+
+        if not email and len(parts) > 4 and '@' in parts[4]:
+            email = parts[4].strip().lower()
+
+        if not email or '@' not in email or '.' not in email or len(email) < 5:
+            errors.append(f"Line {line_idx} ({name}): Valid Email ID is mandatory (वैध ईमेल आयडी अनिवार्य आहे).")
+            continue
 
         try:
             cursor.execute("""
@@ -6172,14 +6294,17 @@ def manage_single_student(roster_id):
     prn = str(data.get('prn') or existing['prn'] or '').strip()
     student_name = str(data.get('student_name') or data.get('name') or existing['student_name'] or '').strip()
     gender = str(data.get('gender') or existing['gender'] or 'Male')
-    division = str(data.get('division') or existing['division'] or 'A').strip()
-    email = str(data.get('email') or existing['email'] or '').strip()
+    email = str(data.get('email') or existing['email'] or '').strip().lower()
     mobile = str(data.get('mobile') or existing['mobile'] or '').strip()
     is_repeater = 1 if data.get('is_repeater', existing['is_repeater']) else 0
 
-    if not (class_name and roll_number and prn and student_name):
+    if not (class_name and roll_number and prn and student_name and email):
         conn.close()
-        return jsonify({'error': 'Class, Roll Number, PRN, and Student Name are required.'}), 400
+        return jsonify({'error': 'Class, Roll Number, PRN/Enrollment, Student Name, and valid Email ID are mandatory. (कृपया वर्ग, रोल नंबर, PRN, नाव आणि ईमेल आयडी प्रविष्ट करा.)'}), 400
+
+    if '@' not in email or '.' not in email or len(email) < 5:
+        conn.close()
+        return jsonify({'error': 'Please enter a valid student Email ID (उदा. student@gmail.com).'}), 400
 
     try:
         cursor.execute("""

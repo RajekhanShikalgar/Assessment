@@ -5152,6 +5152,12 @@ function closeAddStudentModal() {
 
 async function handleSingleStudentSubmit(e) {
   e.preventDefault();
+  const emailVal = document.getElementById('m-stu-email').value.trim();
+  if (!emailVal || !emailVal.includes('@') || !emailVal.includes('.')) {
+    showToast(currentLanguage === 'mr' ? 'विद्यार्थ्याचा वैध ईमेल आयडी अनिवार्य आहे (उदा. student@gmail.com)' : 'Valid Student Email ID is mandatory (e.g. student@gmail.com)', 'error');
+    return;
+  }
+
   const payload = {
     academic_year: document.getElementById('m-stu-year').value.trim(),
     class_name: document.getElementById('m-stu-class').value.trim(),
@@ -5160,7 +5166,7 @@ async function handleSingleStudentSubmit(e) {
     student_name: document.getElementById('m-stu-name').value.trim(),
     gender: document.getElementById('m-stu-gender').value,
     division: document.getElementById('m-stu-div').value.trim() || 'A',
-    email: document.getElementById('m-stu-email').value.trim(),
+    email: emailVal,
     mobile: document.getElementById('m-stu-mobile').value.trim(),
     is_repeater: document.getElementById('m-stu-repeater').checked
   };
@@ -5230,6 +5236,12 @@ function closeEditStudentModal() {
 async function handleEditStudentSubmit(e) {
   e.preventDefault();
   const rosterId = document.getElementById('edit-stu-id').value;
+  const editEmailVal = document.getElementById('edit-stu-email').value.trim();
+  if (!editEmailVal || !editEmailVal.includes('@') || !editEmailVal.includes('.')) {
+    showToast(currentLanguage === 'mr' ? 'विद्यार्थ्याचा वैध ईमेल आयडी अनिवार्य आहे (उदा. student@gmail.com)' : 'Valid Student Email ID is mandatory (e.g. student@gmail.com)', 'error');
+    return;
+  }
+
   const payload = {
     academic_year: document.getElementById('edit-stu-year').value.trim(),
     class_name: document.getElementById('edit-stu-class').value.trim(),
@@ -5238,7 +5250,7 @@ async function handleEditStudentSubmit(e) {
     student_name: document.getElementById('edit-stu-name').value.trim(),
     gender: document.getElementById('edit-stu-gender').value,
     division: document.getElementById('edit-stu-div').value.trim() || 'A',
-    email: document.getElementById('edit-stu-email').value.trim(),
+    email: editEmailVal,
     mobile: document.getElementById('edit-stu-mobile').value.trim(),
     is_repeater: document.getElementById('edit-stu-repeater').checked
   };
@@ -8807,13 +8819,14 @@ function renderAdminSubjectAnalyticsTable(subjects) {
   if (tfoot) {
     const overallCompRate = totalSub > 0 ? (totalEval / totalSub * 100).toFixed(1) : '0.0';
     const sumTitle = (currentLanguage === 'mr') ? `एकूण सारांश (${subjects.length} विषय)` : `Total Summary (${subjects.length} Subjects)`;
+    const displayStudents = (window._adminStatsCache && window._adminStatsCache.stats && (!document.getElementById('admin-sub-search')?.value?.trim())) ? (window._adminStatsCache.stats.total_students ?? totalStudents) : totalStudents;
     tfoot.innerHTML = `
       <tr class="bg-gradient-to-r from-purple-100/90 via-indigo-100/90 to-purple-100/90 font-black text-slate-900 border-t-2 border-purple-400 shadow-xs">
         <td class="p-3 text-center text-xs font-bold text-purple-900">∑</td>
         <td class="p-3 text-xs font-bold text-purple-950 uppercase tracking-wider">${sumTitle}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-emerald-900 bg-emerald-100/60">${totalApproved}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-amber-900 bg-amber-100/60">${totalPending}</td>
-        <td class="p-3 text-center text-xs font-mono font-black text-blue-900">${totalStudents}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-blue-900">${displayStudents}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-teal-900">${totalCourses}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-purple-900">${totalAsm}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-sky-900">${totalSub}</td>
@@ -8891,6 +8904,7 @@ function renderAdminUniversityAnalyticsTable(unis) {
   if (tfoot) {
     const overallCompRate = totalSub > 0 ? (totalEval / totalSub * 100).toFixed(1) : '0.0';
     const sumTitle = (currentLanguage === 'mr') ? `एकूण सारांश (${unis.length} विद्यापीठे)` : `Total Summary (${unis.length} Universities)`;
+    const displayStudents = (window._adminStatsCache && window._adminStatsCache.stats && (!document.getElementById('admin-uni-search')?.value?.trim())) ? (window._adminStatsCache.stats.total_students ?? totalStudents) : totalStudents;
     tfoot.innerHTML = `
       <tr class="bg-gradient-to-r from-indigo-100/90 via-purple-100/90 to-indigo-100/90 font-black text-slate-900 border-t-2 border-indigo-400 shadow-xs">
         <td class="p-3 text-center text-xs font-bold text-indigo-900">∑</td>
@@ -8898,7 +8912,7 @@ function renderAdminUniversityAnalyticsTable(unis) {
         <td class="p-3 text-center text-xs font-mono font-black text-indigo-950 bg-indigo-200/60">${totalColleges}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-emerald-900 bg-emerald-100/60">${totalApproved}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-amber-900 bg-amber-100/60">${totalPending}</td>
-        <td class="p-3 text-center text-xs font-mono font-black text-blue-900">${totalStudents}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-blue-900">${displayStudents}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-teal-900">${totalCourses}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-purple-900">${totalAsm}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-sky-900">${totalSub}</td>
