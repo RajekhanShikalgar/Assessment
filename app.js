@@ -5550,16 +5550,16 @@ function renderTargetStudentsList(filterQuery = '') {
     const classEscaped = escapeHtml(String(st.class_name || ''));
 
     container.innerHTML += `
-      <label class="flex items-center justify-between p-2 rounded-lg hover:bg-blue-50/70 cursor-pointer transition select-none ${isChecked ? 'bg-blue-50/90 font-bold text-blue-950' : ''}">
-        <div class="flex items-center space-x-2.5 min-w-0">
-          <input type="checkbox" value="${prnEscaped}" ${isChecked ? 'checked' : ''} onchange="onTargetStudentCheckboxChange('${prnEscaped}', this.checked)" class="target-student-cb w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
-          <span class="w-7 text-center font-mono font-bold text-slate-600 text-[11px] shrink-0 bg-slate-100 rounded px-1">${rollEscaped}</span>
-          <div class="truncate">
-            <span class="text-slate-900 font-semibold text-xs">${nameEscaped}</span>
-            <span class="text-[10.5px] text-blue-900 font-mono ml-1.5 opacity-80">(${prnEscaped})</span>
+      <label class="flex items-center justify-between p-2.5 rounded-xl hover:bg-blue-50/80 border border-slate-200/60 hover:border-blue-300 cursor-pointer transition select-none gap-2.5 mb-1.5 bg-white shadow-2xs ${isChecked ? 'bg-blue-50/90 border-blue-300 ring-1 ring-blue-300 font-bold text-blue-950' : ''}">
+        <div class="flex items-center gap-2.5 min-w-0 flex-1">
+          <input type="checkbox" value="${prnEscaped}" ${isChecked ? 'checked' : ''} onchange="onTargetStudentCheckboxChange('${prnEscaped}', this.checked)" class="target-student-cb w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0">
+          <span class="inline-flex items-center justify-center min-w-[34px] px-2 py-0.5 font-mono font-bold text-slate-700 text-[11px] shrink-0 bg-slate-100 border border-slate-300/80 rounded-md whitespace-nowrap">#${rollEscaped}</span>
+          <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 min-w-0 flex-1">
+            <span class="text-slate-900 font-bold text-xs whitespace-normal break-words">${nameEscaped}</span>
+            <span class="inline-flex items-center text-[11px] text-blue-700 font-mono bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200/80 shrink-0 font-semibold">PRN: ${prnEscaped}</span>
           </div>
         </div>
-        <span class="text-[10px] text-slate-500 font-medium shrink-0 ml-2">${classEscaped}</span>
+        <span class="text-[11px] text-slate-600 font-medium shrink-0 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 ml-2 whitespace-nowrap">${classEscaped}</span>
       </label>
     `;
   });
@@ -6578,16 +6578,16 @@ function renderEditTargetStudentsList(filterQuery = '') {
     const classEscaped = escapeHtml(String(st.class_name || ''));
 
     container.innerHTML += `
-      <label class="flex items-center justify-between p-1.5 rounded-lg hover:bg-blue-50/70 cursor-pointer transition select-none ${isChecked ? 'bg-blue-50/90 font-bold text-blue-950' : ''}">
-        <div class="flex items-center space-x-2 min-w-0">
-          <input type="checkbox" value="${prnEscaped}" ${isChecked ? 'checked' : ''} onchange="onEditTargetStudentCheckboxChange('${prnEscaped}', this.checked)" class="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
-          <span class="w-6 text-center font-mono font-bold text-slate-600 text-[10px] shrink-0 bg-slate-100 rounded px-1">${rollEscaped}</span>
-          <div class="truncate">
-            <span class="text-slate-900 font-semibold text-xs">${nameEscaped}</span>
-            <span class="text-[10px] text-blue-900 font-mono ml-1 opacity-80">(${prnEscaped})</span>
+      <label class="flex items-center justify-between p-2.5 rounded-xl hover:bg-blue-50/80 border border-slate-200/60 hover:border-blue-300 cursor-pointer transition select-none gap-2.5 mb-1.5 bg-white shadow-2xs ${isChecked ? 'bg-blue-50/90 border-blue-300 ring-1 ring-blue-300 font-bold text-blue-950' : ''}">
+        <div class="flex items-center gap-2.5 min-w-0 flex-1">
+          <input type="checkbox" value="${prnEscaped}" ${isChecked ? 'checked' : ''} onchange="onEditTargetStudentCheckboxChange('${prnEscaped}', this.checked)" class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0">
+          <span class="inline-flex items-center justify-center min-w-[34px] px-2 py-0.5 font-mono font-bold text-slate-700 text-[11px] shrink-0 bg-slate-100 border border-slate-300/80 rounded-md whitespace-nowrap">#${rollEscaped}</span>
+          <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 min-w-0 flex-1">
+            <span class="text-slate-900 font-bold text-xs whitespace-normal break-words">${nameEscaped}</span>
+            <span class="inline-flex items-center text-[11px] text-blue-700 font-mono bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200/80 shrink-0 font-semibold">PRN: ${prnEscaped}</span>
           </div>
         </div>
-        <span class="text-[10px] text-slate-500 font-medium shrink-0 ml-1">${classEscaped}</span>
+        <span class="text-[11px] text-slate-600 font-medium shrink-0 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 ml-2 whitespace-nowrap">${classEscaped}</span>
       </label>
     `;
   });
