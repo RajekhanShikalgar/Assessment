@@ -1131,6 +1131,61 @@ def get_admin_teachers():
         'count_approved': len(approved)
     })
 
+def _get_canonical_university(name):
+    if not name or not str(name).strip():
+        return {'key': 'other', 'en': 'Other / Unspecified University', 'mr': 'इतर / अनिर्दिष्ट विद्यापीठ'}
+    n = str(name).strip().lower()
+    
+    if any(k in n for k in ['shivaji', 'शिवाजी']):
+        return {'key': 'shivaji', 'en': 'Shivaji University, Kolhapur', 'mr': 'शिवाजी विद्यापीठ, कोल्हापूर'}
+    elif any(k in n for k in ['pune', 'sppu', 'savitribai', 'सावित्रीबाई', 'पुणे']):
+        return {'key': 'sppu', 'en': 'Savitribai Phule Pune University (SPPU)', 'mr': 'सावित्रीबाई फुले पुणे विद्यापीठ (SPPU)'}
+    elif any(k in n for k in ['mumbai', 'मुंबई', 'bombay']):
+        return {'key': 'mumbai', 'en': 'University of Mumbai', 'mr': 'मुंबई विद्यापीठ'}
+    elif any(k in n for k in ['solapur', 'ahilyadevi', 'सोलापूर', 'अहिल्यादेवी']):
+        return {'key': 'solapur', 'en': 'Punyashlok Ahilyadevi Holkar Solapur University', 'mr': 'पुण्यश्लोक अहिल्यादेवी होळकर सोलापूर विद्यापीठ'}
+    elif any(k in n for k in ['nagpur', 'rashtrasant', 'नागपूर', 'राष्ट्रसंत', 'rtmnu']):
+        return {'key': 'nagpur', 'en': 'Rashtrasant Tukadoji Maharaj Nagpur University', 'mr': 'राष्ट्रसंत तुकडोजी महाराज नागपूर विद्यापीठ'}
+    elif any(k in n for k in ['amravati', 'अमरावती', 'gadge', 'गाडगे', 'sgbau']):
+        return {'key': 'amravati', 'en': 'Sant Gadge Baba Amravati University', 'mr': 'संत गाडगे बाबा अमरावती विद्यापीठ'}
+    elif any(k in n for k in ['bamu', 'babasaheb', 'marathwada', 'बाबासाहेब', 'मराठवाडा']):
+        return {'key': 'bamu', 'en': 'Dr. Babasaheb Ambedkar Marathwada University', 'mr': 'डॉ. बाबासाहेब आंबेडकर मराठवाडा विद्यापीठ'}
+    elif any(k in n for k in ['nanded', 'srtm', 'नांदेड', 'रामानंद']):
+        return {'key': 'nanded', 'en': 'Swami Ramanand Teerth Marathwada University, Nanded', 'mr': 'स्वामी रामानंद तीर्थ मराठवाडा विद्यापीठ, नांदेड'}
+    elif any(k in n for k in ['jalgaon', 'north maharashtra', 'जळगाव', 'बहिणाबाई', 'kbcnmu']):
+        return {'key': 'jalgaon', 'en': 'Kavayitri Bahinabai Chaudhari North Maharashtra University, Jalgaon', 'mr': 'कवयित्री बहिणाबाई चौधरी उत्तर महाराष्ट्र विद्यापीठ, जळगाव'}
+    elif any(k in n for k in ['gondwana', 'गडचिरोली', 'गोंडवाना']):
+        return {'key': 'gondwana', 'en': 'Gondwana University, Gadchiroli', 'mr': 'गोंडवाना विद्यापीठ, गडचिरोली'}
+    elif any(k in n for k in ['sndt', 'एसएनडीटी']):
+        return {'key': 'sndt', 'en': "SNDT Women's University", 'mr': "एस. एन. डी. टी. महिला विद्यापीठ"}
+    elif any(k in n for k in ['rahuri', 'krishi', 'कृषी']):
+        return {'key': 'mpkv', 'en': 'Mahatma Phule Krishi Vidyapeeth, Rahuri', 'mr': 'महात्मा फुले कृषी विद्यापीठ, राहुरी'}
+    elif any(k in n for k in ['muhs', 'aarogya', 'health', 'आरोग्य']):
+        return {'key': 'muhs', 'en': 'Maharashtra University of Health Sciences, Nashik', 'mr': 'महाराष्ट्र आरोग्य विज्ञान विद्यापीठ, नाशिक'}
+    elif any(k in n for k in ['state tech', 'technological', 'तंत्रज्ञान']):
+        return {'key': 'stu', 'en': 'State Technological University', 'mr': 'राज्य तंत्रज्ञान विद्यापीठ'}
+    elif any(k in n for k in ['higher education', 'उच्च शिक्षण']):
+        return {'key': 'msheu', 'en': 'Maharashtra State Higher Education University', 'mr': 'महाराष्ट्र राज्य उच्च शिक्षण विद्यापीठ'}
+    elif any(k in n for k in ['central state', 'central']):
+        return {'key': 'csu', 'en': 'Central State University', 'mr': 'मध्यवर्ती राज्य विद्यापीठ'}
+    elif 'state university' in n:
+        return {'key': 'state_uni', 'en': 'State University', 'mr': 'राज्य विद्यापीठ'}
+    else:
+        cleaned = re.sub(r'\s*,\s*', ', ', str(name).strip())
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        return {'key': cleaned.lower(), 'en': cleaned.title(), 'mr': cleaned}
+
+def _parse_bilingual_text(val):
+    if not val or not str(val).strip():
+        return {'en': '', 'mr': ''}
+    s = str(val).strip()
+    match = re.match(r'^([^(]+)\s*\(([^)]+)\)$', s)
+    if match:
+        mr_part = match.group(1).strip()
+        en_part = match.group(2).strip()
+        return {'en': en_part, 'mr': mr_part}
+    return {'en': s, 'mr': s}
+
 @app.route('/api/admin/dashboard-stats')
 @admin_required
 def get_admin_dashboard_stats():
@@ -1480,9 +1535,15 @@ def get_admin_dashboard_stats():
         pending_eval_count = max(0, sub_count - eval_count)
         comp_rate = round((eval_count / sub_count * 100), 1) if sub_count > 0 else 0.0
 
+        parsed_sub = _parse_bilingual_text(sname)
+        parsed_stream = _parse_bilingual_text(sdata['faculty_stream'])
         subject_analytics.append({
             'subject_name': sname,
+            'subject_name_en': parsed_sub['en'] or sname,
+            'subject_name_mr': parsed_sub['mr'] or sname,
             'faculty_stream': sdata['faculty_stream'],
+            'faculty_stream_en': parsed_stream['en'] or sdata['faculty_stream'],
+            'faculty_stream_mr': parsed_stream['mr'] or sdata['faculty_stream'],
             'approved_faculty': approved_faculty,
             'pending_faculty': pending_faculty,
             'total_faculty': approved_faculty + pending_faculty,
@@ -1497,38 +1558,43 @@ def get_admin_dashboard_stats():
 
     subject_analytics.sort(key=lambda x: (x['sub_count'], x['total_faculty']), reverse=True)
 
-    # --- UNIVERSITY-WISE AGGREGATION ---
+    # --- UNIVERSITY-WISE AGGREGATION (Canonical Normalization) ---
     uni_map = {}
     for tid, t in teachers.items():
-        uname = (t.get('university_name') or 'इतर / अनिर्दिष्ट विद्यापीठ').strip()
-        if not uname:
-            uname = 'इतर / अनिर्दिष्ट विद्यापीठ'
-        col_name = (t.get('college_name') or '').strip()
+        raw_uname = t.get('university_name') or ''
+        canon = _get_canonical_university(raw_uname)
+        ukey = canon['key']
+        col_name = (t.get('college_name') or '').strip().lower()
         
-        if uname not in uni_map:
-            uni_map[uname] = {
-                'university_name': uname,
+        if ukey not in uni_map:
+            uni_map[ukey] = {
+                'key': ukey,
+                'university_name': canon['mr'],
+                'university_name_en': canon['en'],
+                'university_name_mr': canon['mr'],
                 'colleges': set(),
                 'teacher_ids': set(),
             }
         if col_name:
-            uni_map[uname]['colleges'].add(col_name)
-        uni_map[uname]['teacher_ids'].add(tid)
+            uni_map[ukey]['colleges'].add(col_name)
+        uni_map[ukey]['teacher_ids'].add(tid)
 
     university_analytics = []
-    for uname, udata in uni_map.items():
+    for ukey, udata in uni_map.items():
         approved_faculty = sum(1 for tid in udata['teacher_ids'] if teachers.get(tid, {}).get('status') != 'pending' and not teachers.get(tid, {}).get('extension_requested'))
         pending_faculty = sum(1 for tid in udata['teacher_ids'] if teachers.get(tid, {}).get('status') == 'pending' or teachers.get(tid, {}).get('extension_requested'))
         students_count = sum(teacher_student_counts.get(tid, 0) for tid in udata['teacher_ids'])
         courses_count = sum(1 for ts in all_ts if ts['teacher_id'] in udata['teacher_ids'])
         asm_count = sum(assessments_by_teacher.get(tid, 0) for tid in udata['teacher_ids'])
-        sub_count = sub_count_by_uni.get(uname, sum(sub_count_by_teacher.get(tid, 0) for tid in udata['teacher_ids']))
-        eval_count = eval_count_by_uni.get(uname, sum(eval_count_by_teacher.get(tid, 0) for tid in udata['teacher_ids']))
+        sub_count = sum(sub_count_by_teacher.get(tid, 0) for tid in udata['teacher_ids'])
+        eval_count = sum(eval_count_by_teacher.get(tid, 0) for tid in udata['teacher_ids'])
         pending_eval_count = max(0, sub_count - eval_count)
         comp_rate = round((eval_count / sub_count * 100), 1) if sub_count > 0 else 0.0
 
         university_analytics.append({
-            'university_name': uname,
+            'university_name': udata['university_name_mr'],
+            'university_name_en': udata['university_name_en'],
+            'university_name_mr': udata['university_name_mr'],
             'colleges_count': len(udata['colleges']),
             'approved_faculty': approved_faculty,
             'pending_faculty': pending_faculty,

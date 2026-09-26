@@ -460,8 +460,44 @@ const I18N = {
     "stat_approved_teachers": "Approved Faculty",
     "stat_pending_teachers": "Pending Requests",
     "stat_total_students_admin": "Total Students",
+    "stat_total_courses_admin": "Course Masters",
     "stat_total_asm_admin": "CIE Sessions",
     "stat_total_subs_admin": "Submissions",
+    "stat_total_evaluated_admin": "Evaluations Done",
+    "stat_total_pending_eval_admin": "Pending Evaluations",
+    "stat_unit_teachers": "Faculty",
+    "stat_unit_pending": "Pending",
+    "stat_unit_students": "Enrolled",
+    "stat_unit_courses": "Courses",
+    "stat_unit_assessments": "Created",
+    "stat_unit_submissions": "Papers",
+    "stat_unit_evaluated": "Evaluated",
+    "stat_unit_pending_eval": "Pending",
+    "admin_overview_analytics_title": "Comprehensive System Analytics",
+    "admin_overview_analytics_sub": "Subject-wise & institutional academic performance overview",
+    "tab_overview_subject_btn": "Subject-wise Analytics",
+    "tab_overview_university_btn": "University-wise Analytics",
+    "tab_overview_both_btn": "View Both",
+    "admin_subject_table_title": "📚 Subject-wise Faculty, Students, CIE Sessions & Evaluation Summary",
+    "admin_subject_table_sub": "Subject-wise Approved Faculty, Pending, Students, Courses, CIE Sessions, Submissions & Evaluations",
+    "admin_uni_table_title": "🏛️ University-wise & College-wise Performance Summary",
+    "admin_uni_table_sub": "University-wise Affiliated Colleges, Faculty, Students, CIE Sessions & Submissions",
+    "th_sr_no": "#",
+    "th_subject_stream": "Subject & Faculty Stream",
+    "th_approved_faculty": "Approved Faculty",
+    "th_pending_faculty": "Pending",
+    "th_enrolled_students": "Students",
+    "th_courses_count": "Courses",
+    "th_cie_sessions": "CIE Sessions",
+    "th_submissions_count": "Submissions",
+    "th_evaluated_count": "Evaluations",
+    "th_pending_eval_count": "Pending",
+    "th_completion_rate": "Completion %",
+    "th_university_name": "University Name",
+    "th_colleges_count": "Affiliated Colleges",
+    "ph_search_subject": "Search subject / faculty stream...",
+    "ph_search_university": "Search university name...",
+    "btn_export_csv": "Export CSV",
     "faculty_stream_dist": "Faculty Stream Distribution",
     "recent_registrations_title": "Recent Faculty Registrations",
     "ttab_search_title": "Student Search",
@@ -1035,11 +1071,47 @@ const I18N = {
     "admin_tab_approved_sub": "कार्यरत प्राध्यापक डिरेक्टरी",
     "admin_summary_title": "प्रणाली सांख्यिकी व सर्वसमावेशक माहिती (Analytics)",
     "admin_summary_sub": "नोंदणीकृत प्राध्यापक, विद्यार्थी, अंतर्गत चाचण्या आणि मूल्यमापनाची एकत्रित सांख्यिकी.",
-    "stat_approved_teachers": "मंजूर शिक्षक",
-    "stat_pending_teachers": "प्रलंबित अर्ज",
+    "stat_approved_teachers": "मंजूर प्राध्यापक",
+    "stat_pending_teachers": "प्रलंबित विनंत्या",
     "stat_total_students_admin": "एकूण विद्यार्थी",
-    "stat_total_asm_admin": "मूल्यमापन सत्रे",
-    "stat_total_subs_admin": "एकूण उत्तरे",
+    "stat_total_courses_admin": "अभ्यासक्रम / पेपर्स",
+    "stat_total_asm_admin": "CIE सेशन्स",
+    "stat_total_subs_admin": "प्राप्त सबमिशन्स",
+    "stat_total_evaluated_admin": "पूर्ण मूल्यमापन",
+    "stat_total_pending_eval_admin": "प्रलंबित मूल्यमापन",
+    "stat_unit_teachers": "प्राध्यापक",
+    "stat_unit_pending": "प्रलंबित",
+    "stat_unit_students": "नोंदणीकृत",
+    "stat_unit_courses": "कोर्सेस",
+    "stat_unit_assessments": "आयोजित",
+    "stat_unit_submissions": "उत्तरपत्रिका",
+    "stat_unit_evaluated": "तपासलेले",
+    "stat_unit_pending_eval": "प्रलंबित",
+    "admin_overview_analytics_title": "सर्वसमावेशक सांख्यिकी सारांश",
+    "admin_overview_analytics_sub": "विषयनिहाय व संस्थात्मक शैक्षणिक कामगिरी अद्ययावत माहिती",
+    "tab_overview_subject_btn": "विषयनिहाय सांख्यिकी",
+    "tab_overview_university_btn": "विद्यापीठनिहाय सांख्यिकी",
+    "tab_overview_both_btn": "दोन्ही पहा",
+    "admin_subject_table_title": "📚 विषयनिहाय प्राध्यापक, विद्यार्थी, CIE सेशन्स व मूल्यमापन सारांश",
+    "admin_subject_table_sub": "विषयनिहाय मंजूर/प्रलंबित प्राध्यापक, विद्यार्थी, अभ्यासक्रम, CIE सेशन्स, सबमिशन्स व मूल्यमापन",
+    "admin_uni_table_title": "🏛️ विद्यापीठनिहाय व महाविद्यालयनिहाय सांख्यिकी सारांश",
+    "admin_uni_table_sub": "विद्यापीठनिहाय संलग्न महाविद्यालये, प्राध्यापक, विद्यार्थी, चाचण्या व सबमिशन्स",
+    "th_sr_no": "अ.क्र.",
+    "th_subject_stream": "विषय व विद्याशाखा",
+    "th_approved_faculty": "मंजूर प्राध्यापक",
+    "th_pending_faculty": "प्रलंबित",
+    "th_enrolled_students": "विद्यार्थी",
+    "th_courses_count": "अभ्यासक्रम",
+    "th_cie_sessions": "CIE सेशन्स",
+    "th_submissions_count": "सबमिशन्स",
+    "th_evaluated_count": "मूल्यमापन",
+    "th_pending_eval_count": "प्रलंबित",
+    "th_completion_rate": "पूर्णता दर %",
+    "th_university_name": "विद्यापीठाचे नाव",
+    "th_colleges_count": "संलग्न महाविद्यालये",
+    "ph_search_subject": "विषय / विद्याशाखा शोधा...",
+    "ph_search_university": "विद्यापीठाचे नाव शोधा...",
+    "btn_export_csv": "CSV डाऊनलोड",
     "faculty_stream_dist": "विद्याशाखानिहाय शिक्षक संख्या",
     "recent_registrations_title": "अलीकडील शिक्षक नोंदणी",
     "ttab_search_title": "विद्यार्थी शोध",
@@ -1327,6 +1399,14 @@ function setLanguage(lang) {
           loadAdminDashboardStats();
         }
       }
+    } catch (e) {}
+  }
+
+  // Instant re-render for admin overview tables & stream breakdown if cached
+  const cachedAdminStats = (typeof _adminStatsCache !== 'undefined' && _adminStatsCache) || window._adminStatsCache;
+  if (cachedAdminStats && typeof renderAdminDashboardStats === 'function') {
+    try {
+      renderAdminDashboardStats(cachedAdminStats);
     } catch (e) {}
   }
 
@@ -8622,6 +8702,7 @@ async function loadAdminDashboardStats(forceRefresh = false) {
     if (!data.success) return;
 
     _adminStatsCache = data;
+    window._adminStatsCache = data;
     _adminStatsCacheTime = Date.now();
     renderAdminDashboardStats(data);
   } catch (e) {
@@ -8670,7 +8751,8 @@ function renderAdminSubjectAnalyticsTable(subjects) {
   if (!tbody) return;
 
   if (!subjects || subjects.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" class="p-4 text-center text-slate-400 text-xs">कोणतेही विषय सापडले नाहीत (No subject records found).</td></tr>';
+    const noRec = (currentLanguage === 'mr') ? 'कोणतेही विषय सापडले नाहीत.' : 'No subject records found.';
+    tbody.innerHTML = `<tr><td colspan="11" class="p-4 text-center text-slate-400 text-xs">${noRec}</td></tr>`;
     if (tfoot) tfoot.innerHTML = '';
     return;
   }
@@ -8697,12 +8779,15 @@ function renderAdminSubjectAnalyticsTable(subjects) {
     const compRate = sub.completion_rate || 0;
     const badgeColor = compRate >= 80 ? 'bg-emerald-100 text-emerald-800' : (compRate >= 40 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700');
 
+    const subName = (currentLanguage === 'mr') ? (sub.subject_name_mr || sub.subject_name) : (sub.subject_name_en || sub.subject_name);
+    const streamName = (currentLanguage === 'mr') ? (sub.faculty_stream_mr || sub.faculty_stream || '') : (sub.faculty_stream_en || sub.faculty_stream || '');
+
     return `
       <tr class="hover:bg-purple-50/40 transition border-b border-slate-100">
         <td class="p-2.5 text-center font-bold text-slate-400 font-mono text-xs">${idx + 1}</td>
         <td class="p-2.5 font-semibold text-slate-900 text-xs">
-          <div class="font-bold text-slate-800">${escapeHtml(sub.subject_name)}</div>
-          <div class="text-[10.5px] text-purple-700 font-medium">${escapeHtml(sub.faculty_stream || '')}</div>
+          <div class="font-bold text-slate-800">${escapeHtml(subName)}</div>
+          <div class="text-[10.5px] text-purple-700 font-medium">${escapeHtml(streamName)}</div>
         </td>
         <td class="p-2.5 text-center text-xs font-mono font-bold text-emerald-700 bg-emerald-50/30">${sub.approved_faculty || 0}</td>
         <td class="p-2.5 text-center text-xs font-mono font-bold ${(sub.pending_faculty > 0) ? 'text-amber-600 bg-amber-50/40' : 'text-slate-400'}">${sub.pending_faculty || 0}</td>
@@ -8721,10 +8806,11 @@ function renderAdminSubjectAnalyticsTable(subjects) {
 
   if (tfoot) {
     const overallCompRate = totalSub > 0 ? (totalEval / totalSub * 100).toFixed(1) : '0.0';
+    const sumTitle = (currentLanguage === 'mr') ? `एकूण सारांश (${subjects.length} विषय)` : `Total Summary (${subjects.length} Subjects)`;
     tfoot.innerHTML = `
       <tr class="bg-gradient-to-r from-purple-100/90 via-indigo-100/90 to-purple-100/90 font-black text-slate-900 border-t-2 border-purple-400 shadow-xs">
         <td class="p-3 text-center text-xs font-bold text-purple-900">∑</td>
-        <td class="p-3 text-xs font-bold text-purple-950 uppercase tracking-wider">एकूण सारांश (${subjects.length} विषय)</td>
+        <td class="p-3 text-xs font-bold text-purple-950 uppercase tracking-wider">${sumTitle}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-emerald-900 bg-emerald-100/60">${totalApproved}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-amber-900 bg-amber-100/60">${totalPending}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-blue-900">${totalStudents}</td>
@@ -8747,7 +8833,8 @@ function renderAdminUniversityAnalyticsTable(unis) {
   if (!tbody) return;
 
   if (!unis || unis.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="12" class="p-4 text-center text-slate-400 text-xs">कोणतीही विद्यापीठे सापडली नाहीत (No university records found).</td></tr>';
+    const noRec = (currentLanguage === 'mr') ? 'कोणतीही विद्यापीठे सापडली नाहीत.' : 'No university records found.';
+    tbody.innerHTML = `<tr><td colspan="12" class="p-4 text-center text-slate-400 text-xs">${noRec}</td></tr>`;
     if (tfoot) tfoot.innerHTML = '';
     return;
   }
@@ -8776,12 +8863,14 @@ function renderAdminUniversityAnalyticsTable(unis) {
     const compRate = u.completion_rate || 0;
     const badgeColor = compRate >= 80 ? 'bg-emerald-100 text-emerald-800' : (compRate >= 40 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700');
 
+    const uniName = (currentLanguage === 'mr') ? (u.university_name_mr || u.university_name) : (u.university_name_en || u.university_name);
+
     return `
       <tr class="hover:bg-indigo-50/40 transition border-b border-slate-100">
         <td class="p-2.5 text-center font-bold text-slate-400 font-mono text-xs">${idx + 1}</td>
         <td class="p-2.5 font-bold text-slate-900 text-xs flex items-center gap-1.5">
           <i class="fa-solid fa-building-columns text-indigo-500 text-xs"></i>
-          <span>${escapeHtml(u.university_name)}</span>
+          <span>${escapeHtml(uniName)}</span>
         </td>
         <td class="p-2.5 text-center text-xs font-mono font-bold text-indigo-700 bg-indigo-50/30">${u.colleges_count || 0}</td>
         <td class="p-2.5 text-center text-xs font-mono font-bold text-emerald-700 bg-emerald-50/30">${u.approved_faculty || 0}</td>
@@ -8801,10 +8890,11 @@ function renderAdminUniversityAnalyticsTable(unis) {
 
   if (tfoot) {
     const overallCompRate = totalSub > 0 ? (totalEval / totalSub * 100).toFixed(1) : '0.0';
+    const sumTitle = (currentLanguage === 'mr') ? `एकूण सारांश (${unis.length} विद्यापीठे)` : `Total Summary (${unis.length} Universities)`;
     tfoot.innerHTML = `
       <tr class="bg-gradient-to-r from-indigo-100/90 via-purple-100/90 to-indigo-100/90 font-black text-slate-900 border-t-2 border-indigo-400 shadow-xs">
         <td class="p-3 text-center text-xs font-bold text-indigo-900">∑</td>
-        <td class="p-3 text-xs font-bold text-indigo-950 uppercase tracking-wider">एकूण सारांश (${unis.length} विद्यापीठे)</td>
+        <td class="p-3 text-xs font-bold text-indigo-950 uppercase tracking-wider">${sumTitle}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-indigo-950 bg-indigo-200/60">${totalColleges}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-emerald-900 bg-emerald-100/60">${totalApproved}</td>
         <td class="p-3 text-center text-xs font-mono font-black text-amber-900 bg-amber-100/60">${totalPending}</td>
@@ -8831,7 +8921,11 @@ function searchAdminSubjectAnalytics(val) {
   }
   const filtered = all.filter(s => 
     (s.subject_name && s.subject_name.toLowerCase().includes(q)) ||
-    (s.faculty_stream && s.faculty_stream.toLowerCase().includes(q))
+    (s.subject_name_mr && s.subject_name_mr.toLowerCase().includes(q)) ||
+    (s.subject_name_en && s.subject_name_en.toLowerCase().includes(q)) ||
+    (s.faculty_stream && s.faculty_stream.toLowerCase().includes(q)) ||
+    (s.faculty_stream_mr && s.faculty_stream_mr.toLowerCase().includes(q)) ||
+    (s.faculty_stream_en && s.faculty_stream_en.toLowerCase().includes(q))
   );
   renderAdminSubjectAnalyticsTable(filtered);
 }
@@ -8844,7 +8938,9 @@ function searchAdminUniversityAnalytics(val) {
     return;
   }
   const filtered = all.filter(u => 
-    (u.university_name && u.university_name.toLowerCase().includes(q))
+    (u.university_name && u.university_name.toLowerCase().includes(q)) ||
+    (u.university_name_mr && u.university_name_mr.toLowerCase().includes(q)) ||
+    (u.university_name_en && u.university_name_en.toLowerCase().includes(q))
   );
   renderAdminUniversityAnalyticsTable(filtered);
 }
