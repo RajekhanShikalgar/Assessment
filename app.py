@@ -1160,6 +1160,17 @@ def get_admin_dashboard_stats():
     
     cursor.execute('SELECT COUNT(*) FROM teacher_subjects')
     total_courses = cursor.fetchone()[0]
+
+    cursor.execute('SELECT COUNT(DISTINCT TRIM(university_name)) FROM teachers WHERE university_name IS NOT NULL AND TRIM(university_name) != ""')
+    total_universities = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(DISTINCT TRIM(college_name)) FROM teachers WHERE college_name IS NOT NULL AND TRIM(college_name) != ""')
+    total_colleges = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM evaluations')
+    total_evaluated = cursor.fetchone()[0]
+    
+    total_pending_eval = max(0, total_submissions - total_evaluated)
     
     # Predefined Faculty Streams Breakdown (Matching Teacher Portal & Master Disciplines)
     predefined_streams = [
@@ -1327,22 +1338,211 @@ def get_admin_dashboard_stats():
     ''')
     stream_counts = {r['faculty_stream']: r['teacher_count'] for r in cursor.fetchall()}
 
+    # Pre-fetch all teachers
+    cursor.execute('''
+        SELECT id, teacher_code, name, designation, college_name, university_name, faculty_stream, subject_name, status, extension_requested
+        FROM teachers
+    ''')
+    teachers_raw = [dict(r) for r in cursor.fetchall()]
+    teachers = {t['id']: t for t in teachers_raw}
+    all_teachers = [t for t in teachers_raw if t.get('status') != 'pending']
+
     # Pre-fetch teacher_rosters student counts per (teacher_id, class_name) in 1 query
     cursor.execute('SELECT teacher_id, class_name, COUNT(DISTINCT prn) as s_count FROM teacher_rosters GROUP BY teacher_id, class_name')
     roster_counts = {(r['teacher_id'], r['class_name']): r['s_count'] for r in cursor.fetchall()}
+
+    cursor.execute('SELECT teacher_id, COUNT(DISTINCT prn) as s_count FROM teacher_rosters GROUP BY teacher_id')
+    teacher_student_counts = {r['teacher_id']: r['s_count'] for r in cursor.fetchall()}
 
     # Pre-fetch teacher_subjects with teacher info in 1 query
     cursor.execute("""
         SELECT ts.id, ts.teacher_id, ts.subject_name, ts.class_name, ts.faculty_stream, t.faculty_stream as t_stream
         FROM teacher_subjects ts
         JOIN teachers t ON ts.teacher_id = t.id
-        WHERE t.status != 'pending'
     """)
     all_ts = [dict(r) for r in cursor.fetchall()]
+    ts_by_id = {r['id']: r for r in all_ts}
 
-    # Pre-fetch teachers in 1 query
-    cursor.execute("SELECT id, subject_name, faculty_stream FROM teachers WHERE status != 'pending'")
-    all_teachers = [dict(r) for r in cursor.fetchall()]
+    # Pre-fetch created_assessments
+    cursor.execute('SELECT id, teacher_id, subject_id, class_name FROM created_assessments')
+    all_assessments = [dict(r) for r in cursor.fetchall()]
+    assessments_by_teacher = {}
+    for a in all_assessments:
+        assessments_by_teacher[a['teacher_id']] = assessments_by_teacher.get(a['teacher_id'], 0) + 1
+
+    # Pre-fetch submissions & evaluations
+    cursor.execute('''
+        SELECT s.id, s.teacher_id, s.created_assessment_id, s.university_name, s.college_name,
+               (CASE WHEN e.id IS NOT NULL OR s.status = 'Assessed' THEN 1 ELSE 0 END) as is_evaluated
+        FROM submissions s
+        LEFT JOIN evaluations e ON s.id = e.submission_id
+    ''')
+    submissions = [dict(r) for r in cursor.fetchall()]
+
+    sub_count_by_asm = {}
+    eval_count_by_asm = {}
+    sub_count_by_teacher = {}
+    eval_count_by_teacher = {}
+    sub_count_by_uni = {}
+    eval_count_by_uni = {}
+
+    for s in submissions:
+        aid = s['created_assessment_id']
+        tid = s['teacher_id']
+        uname = (s['university_name'] or '').strip()
+        is_ev = s['is_evaluated']
+
+        sub_count_by_asm[aid] = sub_count_by_asm.get(aid, 0) + 1
+        sub_count_by_teacher[tid] = sub_count_by_teacher.get(tid, 0) + 1
+        if uname:
+            sub_count_by_uni[uname] = sub_count_by_uni.get(uname, 0) + 1
+
+        if is_ev:
+            eval_count_by_asm[aid] = eval_count_by_asm.get(aid, 0) + 1
+            eval_count_by_teacher[tid] = eval_count_by_teacher.get(tid, 0) + 1
+            if uname:
+                eval_count_by_uni[uname] = eval_count_by_uni.get(uname, 0) + 1
+
+    # --- SUBJECT-WISE AGGREGATION ---
+    subject_map = {}
+    for ts in all_ts:
+        sname = (ts.get('subject_name') or '').strip()
+        if not sname:
+            continue
+        stream = (ts.get('faculty_stream') or ts.get('t_stream') or '').strip()
+        tid = ts['teacher_id']
+        t = teachers.get(tid)
+        if not stream and t:
+            stream = (t.get('faculty_stream') or '').strip()
+        
+        if sname not in subject_map:
+            subject_map[sname] = {
+                'subject_name': sname,
+                'faculty_stream': stream or 'General',
+                'teacher_ids': set(),
+                'course_ids': set(),
+                'classes': set(),
+                'asm_ids': set()
+            }
+        subject_map[sname]['teacher_ids'].add(tid)
+        subject_map[sname]['course_ids'].add(ts['id'])
+        if ts.get('class_name'):
+            subject_map[sname]['classes'].add((tid, ts['class_name']))
+
+    for tid, t in teachers.items():
+        sname = (t.get('subject_name') or '').strip()
+        if not sname:
+            continue
+        stream = (t.get('faculty_stream') or '').strip()
+        if sname not in subject_map:
+            subject_map[sname] = {
+                'subject_name': sname,
+                'faculty_stream': stream or 'General',
+                'teacher_ids': set(),
+                'course_ids': set(),
+                'classes': set(),
+                'asm_ids': set()
+            }
+        subject_map[sname]['teacher_ids'].add(tid)
+
+    for asm in all_assessments:
+        aid = asm['id']
+        sid = asm.get('subject_id')
+        sname = None
+        if sid and sid in ts_by_id:
+            sname = (ts_by_id[sid].get('subject_name') or '').strip()
+        elif asm['teacher_id'] in teachers:
+            sname = (teachers[asm['teacher_id']].get('subject_name') or '').strip()
+        
+        if sname and sname in subject_map:
+            subject_map[sname]['asm_ids'].add(aid)
+
+    subject_analytics = []
+    for sname, sdata in subject_map.items():
+        approved_faculty = sum(1 for tid in sdata['teacher_ids'] if teachers.get(tid, {}).get('status') != 'pending' and not teachers.get(tid, {}).get('extension_requested'))
+        pending_faculty = sum(1 for tid in sdata['teacher_ids'] if teachers.get(tid, {}).get('status') == 'pending' or teachers.get(tid, {}).get('extension_requested'))
+        
+        if sdata['classes']:
+            st_count = sum(roster_counts.get(cls, 0) for cls in sdata['classes'])
+        else:
+            st_count = sum(teacher_student_counts.get(tid, 0) for tid in sdata['teacher_ids'])
+        
+        courses_count = len(sdata['course_ids'])
+        asm_count = len(sdata['asm_ids'])
+        
+        sub_count = sum(sub_count_by_asm.get(aid, 0) for aid in sdata['asm_ids'])
+        if sub_count == 0 and len(sdata['teacher_ids']) > 0:
+            sub_count = sum(sub_count_by_teacher.get(tid, 0) for tid in sdata['teacher_ids'])
+            eval_count = sum(eval_count_by_teacher.get(tid, 0) for tid in sdata['teacher_ids'])
+        else:
+            eval_count = sum(eval_count_by_asm.get(aid, 0) for aid in sdata['asm_ids'])
+            
+        pending_eval_count = max(0, sub_count - eval_count)
+        comp_rate = round((eval_count / sub_count * 100), 1) if sub_count > 0 else 0.0
+
+        subject_analytics.append({
+            'subject_name': sname,
+            'faculty_stream': sdata['faculty_stream'],
+            'approved_faculty': approved_faculty,
+            'pending_faculty': pending_faculty,
+            'total_faculty': approved_faculty + pending_faculty,
+            'students_count': st_count,
+            'courses_count': courses_count,
+            'asm_count': asm_count,
+            'sub_count': sub_count,
+            'eval_count': eval_count,
+            'pending_eval_count': pending_eval_count,
+            'completion_rate': comp_rate
+        })
+
+    subject_analytics.sort(key=lambda x: (x['sub_count'], x['total_faculty']), reverse=True)
+
+    # --- UNIVERSITY-WISE AGGREGATION ---
+    uni_map = {}
+    for tid, t in teachers.items():
+        uname = (t.get('university_name') or 'इतर / अनिर्दिष्ट विद्यापीठ').strip()
+        if not uname:
+            uname = 'इतर / अनिर्दिष्ट विद्यापीठ'
+        col_name = (t.get('college_name') or '').strip()
+        
+        if uname not in uni_map:
+            uni_map[uname] = {
+                'university_name': uname,
+                'colleges': set(),
+                'teacher_ids': set(),
+            }
+        if col_name:
+            uni_map[uname]['colleges'].add(col_name)
+        uni_map[uname]['teacher_ids'].add(tid)
+
+    university_analytics = []
+    for uname, udata in uni_map.items():
+        approved_faculty = sum(1 for tid in udata['teacher_ids'] if teachers.get(tid, {}).get('status') != 'pending' and not teachers.get(tid, {}).get('extension_requested'))
+        pending_faculty = sum(1 for tid in udata['teacher_ids'] if teachers.get(tid, {}).get('status') == 'pending' or teachers.get(tid, {}).get('extension_requested'))
+        students_count = sum(teacher_student_counts.get(tid, 0) for tid in udata['teacher_ids'])
+        courses_count = sum(1 for ts in all_ts if ts['teacher_id'] in udata['teacher_ids'])
+        asm_count = sum(assessments_by_teacher.get(tid, 0) for tid in udata['teacher_ids'])
+        sub_count = sub_count_by_uni.get(uname, sum(sub_count_by_teacher.get(tid, 0) for tid in udata['teacher_ids']))
+        eval_count = eval_count_by_uni.get(uname, sum(eval_count_by_teacher.get(tid, 0) for tid in udata['teacher_ids']))
+        pending_eval_count = max(0, sub_count - eval_count)
+        comp_rate = round((eval_count / sub_count * 100), 1) if sub_count > 0 else 0.0
+
+        university_analytics.append({
+            'university_name': uname,
+            'colleges_count': len(udata['colleges']),
+            'approved_faculty': approved_faculty,
+            'pending_faculty': pending_faculty,
+            'total_faculty': approved_faculty + pending_faculty,
+            'students_count': students_count,
+            'courses_count': courses_count,
+            'asm_count': asm_count,
+            'sub_count': sub_count,
+            'eval_count': eval_count,
+            'pending_eval_count': pending_eval_count,
+            'completion_rate': comp_rate
+        })
+
+    university_analytics.sort(key=lambda x: (x['colleges_count'], x['total_faculty']), reverse=True)
 
     stream_breakdown = []
     # Collect all match terms from defined streams
@@ -1474,8 +1674,14 @@ def get_admin_dashboard_stats():
             'total_students': total_students,
             'total_assessments': total_assessments,
             'total_submissions': total_submissions,
-            'total_courses': total_courses
+            'total_courses': total_courses,
+            'total_universities': total_universities,
+            'total_colleges': total_colleges,
+            'total_evaluated': total_evaluated,
+            'total_pending_eval': total_pending_eval
         },
+        'subject_analytics': subject_analytics,
+        'university_analytics': university_analytics,
         'stream_breakdown': stream_breakdown,
         'recent_teachers': recent_teachers
     }
@@ -2438,47 +2644,228 @@ def get_teacher_dashboard_stats():
     
     pending_evaluations = max(0, total_submissions - evaluated_submissions)
     
-    # 2. Comprehensive Class breakdown
+    # 2. Comprehensive Course-wise & Subject-wise Performance (Course-wise Teacher Performance)
     cursor.execute('''
-        SELECT DISTINCT class_name, academic_year FROM teacher_subjects WHERE teacher_id = ?
-        UNION
-        SELECT DISTINCT class_name, academic_year FROM teacher_rosters WHERE teacher_id = ?
-    ''', (teacher_id, teacher_id))
-    classes = cursor.fetchall()
-    class_breakdown = []
-    for cl in classes:
-        c_name = cl['class_name']
-        ay = cl['academic_year']
-        
-        cursor.execute('''
-            SELECT semester, subject_name, course_code, course_name FROM teacher_subjects
-            WHERE teacher_id = ? AND class_name = ?
-            ORDER BY id DESC LIMIT 1
-        ''', (teacher_id, c_name))
-        sub_info = cursor.fetchone()
-        
-        cursor.execute('SELECT COUNT(DISTINCT prn) FROM teacher_rosters WHERE teacher_id = ? AND class_name = ?', (teacher_id, c_name))
-        student_count = cursor.fetchone()[0]
-        
-        cursor.execute('SELECT COUNT(*) FROM created_assessments WHERE teacher_id = ? AND class_name = ?', (teacher_id, c_name))
-        asm_count = cursor.fetchone()[0]
-        
-        cursor.execute('SELECT COUNT(*) FROM submissions WHERE teacher_id = ? AND class_name = ?', (teacher_id, c_name))
-        sub_count = cursor.fetchone()[0]
-        
-        class_breakdown.append({
-            'academic_year': ay,
-            'class_name': c_name,
-            'semester': sub_info['semester'] if sub_info else '—',
-            'subject_name': sub_info['subject_name'] if sub_info else '—',
-            'course_code': sub_info['course_code'] if sub_info else '—',
-            'course_name': sub_info['course_name'] if sub_info else '',
-            'student_count': student_count,
-            'asm_count': asm_count,
-            'sub_count': sub_count
-        })
+        SELECT id, academic_year, faculty_stream, subject_name, class_name, semester, course_code, course_name, credits, total_internal_max_marks
+        FROM teacher_subjects
+        WHERE teacher_id = ?
+        ORDER BY academic_year DESC, class_name ASC, semester ASC, id ASC
+    ''', (teacher_id,))
+    ts_courses = cursor.fetchall()
     
-    # 3. Recent Assessments
+    course_performance = []
+    seen_course_keys = set()
+    
+    for c in ts_courses:
+        c_id = c['id']
+        c_name = c['class_name']
+        ay = c['academic_year'] or ''
+        code = (c['course_code'] or '').strip()
+        course_title = (c['course_name'] or '').strip()
+        sem = c['semester'] or ''
+        subj = c['subject_name'] or ''
+        stream = c['faculty_stream'] or ''
+        seen_course_keys.add((c_name, code))
+        
+        # Enrolled students for this class & academic year
+        if ay:
+            cursor.execute('SELECT COUNT(DISTINCT prn) FROM teacher_rosters WHERE teacher_id = ? AND class_name = ? AND academic_year = ?', (teacher_id, c_name, ay))
+            stu_cnt = cursor.fetchone()[0]
+            if stu_cnt == 0:
+                cursor.execute('SELECT COUNT(DISTINCT prn) FROM teacher_rosters WHERE teacher_id = ? AND class_name = ?', (teacher_id, c_name))
+                stu_cnt = cursor.fetchone()[0]
+        else:
+            cursor.execute('SELECT COUNT(DISTINCT prn) FROM teacher_rosters WHERE teacher_id = ? AND class_name = ?', (teacher_id, c_name))
+            stu_cnt = cursor.fetchone()[0]
+            
+        # Assessments for this specific course
+        if code:
+            cursor.execute('''
+                SELECT id FROM created_assessments 
+                WHERE teacher_id = ? AND (subject_id = ? OR (class_name = ? AND course_code = ?))
+            ''', (teacher_id, c_id, c_name, code))
+        else:
+            cursor.execute('''
+                SELECT id FROM created_assessments 
+                WHERE teacher_id = ? AND (subject_id = ? OR class_name = ?)
+            ''', (teacher_id, c_id, c_name))
+        asm_ids = [r['id'] for r in cursor.fetchall()]
+        asm_cnt = len(asm_ids)
+        
+        if asm_ids:
+            ph = ','.join('?' for _ in asm_ids)
+            cursor.execute(f'SELECT COUNT(*) FROM submissions WHERE teacher_id = ? AND created_assessment_id IN ({ph})', [teacher_id] + asm_ids)
+            sub_cnt = cursor.fetchone()[0]
+            
+            cursor.execute(f'''
+                SELECT COUNT(*) FROM submissions s 
+                WHERE s.teacher_id = ? AND s.created_assessment_id IN ({ph})
+                  AND (s.status = 'Assessed' OR EXISTS (SELECT 1 FROM evaluations e WHERE e.submission_id = s.id))
+            ''', [teacher_id] + asm_ids)
+            eval_cnt = cursor.fetchone()[0]
+        else:
+            sub_cnt = 0
+            eval_cnt = 0
+            
+        pending_cnt = max(0, sub_cnt - eval_cnt)
+        eval_rate = round((eval_cnt / sub_cnt) * 100) if sub_cnt > 0 else (100 if asm_cnt > 0 and sub_cnt == 0 else 0)
+        
+        course_performance.append({
+            'course_id': c_id,
+            'academic_year': ay,
+            'faculty_stream': stream,
+            'class_name': c_name,
+            'semester': sem,
+            'subject_name': subj,
+            'course_code': code,
+            'course_name': course_title,
+            'student_count': stu_cnt,
+            'asm_count': asm_cnt,
+            'sub_count': sub_cnt,
+            'eval_count': eval_cnt,
+            'pending_count': pending_cnt,
+            'completion_rate': eval_rate
+        })
+        
+    # Also check created_assessments for any course not yet in teacher_subjects
+    cursor.execute('''
+        SELECT DISTINCT class_name, semester, course_code, course_name, academic_year
+        FROM created_assessments
+        WHERE teacher_id = ?
+    ''', (teacher_id,))
+    for extra in cursor.fetchall():
+        ext_class = extra['class_name']
+        ext_code = (extra['course_code'] or '').strip()
+        if (ext_class, ext_code) not in seen_course_keys:
+            seen_course_keys.add((ext_class, ext_code))
+            cursor.execute('''
+                SELECT id FROM created_assessments
+                WHERE teacher_id = ? AND class_name = ? AND (course_code = ? OR course_code IS NULL)
+            ''', (teacher_id, ext_class, ext_code))
+            asm_ids = [r['id'] for r in cursor.fetchall()]
+            asm_cnt = len(asm_ids)
+            
+            cursor.execute('SELECT COUNT(DISTINCT prn) FROM teacher_rosters WHERE teacher_id = ? AND class_name = ?', (teacher_id, ext_class))
+            stu_cnt = cursor.fetchone()[0]
+            
+            if asm_ids:
+                ph = ','.join('?' for _ in asm_ids)
+                cursor.execute(f'SELECT COUNT(*) FROM submissions WHERE teacher_id = ? AND created_assessment_id IN ({ph})', [teacher_id] + asm_ids)
+                sub_cnt = cursor.fetchone()[0]
+                cursor.execute(f'''
+                    SELECT COUNT(*) FROM submissions s 
+                    WHERE s.teacher_id = ? AND s.created_assessment_id IN ({ph})
+                      AND (s.status = 'Assessed' OR EXISTS (SELECT 1 FROM evaluations e WHERE e.submission_id = s.id))
+                ''', [teacher_id] + asm_ids)
+                eval_cnt = cursor.fetchone()[0]
+            else:
+                sub_cnt = 0
+                eval_cnt = 0
+            pending_cnt = max(0, sub_cnt - eval_cnt)
+            eval_rate = round((eval_cnt / sub_cnt) * 100) if sub_cnt > 0 else (100 if asm_cnt > 0 and sub_cnt == 0 else 0)
+            
+            course_performance.append({
+                'course_id': None,
+                'academic_year': extra['academic_year'] or '',
+                'faculty_stream': '',
+                'class_name': ext_class,
+                'semester': extra['semester'] or '',
+                'subject_name': extra['course_name'] or 'CIE Assessment Course',
+                'course_code': ext_code,
+                'course_name': extra['course_name'] or '',
+                'student_count': stu_cnt,
+                'asm_count': asm_cnt,
+                'sub_count': sub_cnt,
+                'eval_count': eval_cnt,
+                'pending_count': pending_cnt,
+                'completion_rate': eval_rate
+            })
+
+    # Also check teacher_rosters for any class without course/assessment yet
+    cursor.execute('SELECT DISTINCT class_name, academic_year FROM teacher_rosters WHERE teacher_id = ?', (teacher_id,))
+    for rost in cursor.fetchall():
+        r_class = rost['class_name']
+        if not any(cp['class_name'] == r_class for cp in course_performance):
+            cursor.execute('SELECT COUNT(DISTINCT prn) FROM teacher_rosters WHERE teacher_id = ? AND class_name = ?', (teacher_id, r_class))
+            stu_cnt = cursor.fetchone()[0]
+            course_performance.append({
+                'course_id': None,
+                'academic_year': rost['academic_year'] or '',
+                'faculty_stream': '',
+                'class_name': r_class,
+                'semester': '—',
+                'subject_name': 'Pending Course Setup',
+                'course_code': '—',
+                'course_name': '',
+                'student_count': stu_cnt,
+                'asm_count': 0,
+                'sub_count': 0,
+                'eval_count': 0,
+                'pending_count': 0,
+                'completion_rate': 0
+            })
+
+    # 3. Class-wise Breakdown (Aggregated across courses)
+    class_groups = {}
+    for cp in course_performance:
+        cn = cp['class_name']
+        if cn not in class_groups:
+            class_groups[cn] = {
+                'class_name': cn,
+                'academic_year': cp['academic_year'],
+                'semesters': set(),
+                'subjects': [],
+                'student_count': cp['student_count'],
+                'asm_count': 0,
+                'sub_count': 0,
+                'eval_count': 0,
+                'pending_count': 0
+            }
+        if cp.get('semester') and cp['semester'] != '—':
+            class_groups[cn]['semesters'].add(cp['semester'])
+        subj_label = cp['subject_name']
+        if cp.get('course_code') and cp['course_code'] != '—':
+            subj_label += f" ({cp['course_code']})"
+        if subj_label not in class_groups[cn]['subjects']:
+            class_groups[cn]['subjects'].append(subj_label)
+        class_groups[cn]['asm_count'] += cp['asm_count']
+        class_groups[cn]['sub_count'] += cp['sub_count']
+        class_groups[cn]['eval_count'] += cp['eval_count']
+        class_groups[cn]['pending_count'] += cp['pending_count']
+
+    class_breakdown = []
+    for cn, cg in class_groups.items():
+        sub_cnt = cg['sub_count']
+        eval_cnt = cg['eval_count']
+        c_rate = round((eval_cnt / sub_cnt) * 100) if sub_cnt > 0 else (100 if cg['asm_count'] > 0 and sub_cnt == 0 else 0)
+        class_breakdown.append({
+            'class_name': cn,
+            'academic_year': cg['academic_year'],
+            'semester': ', '.join(sorted(cg['semesters'])) if cg['semesters'] else '—',
+            'subject_name': ', '.join(cg['subjects'][:3]) + ('...' if len(cg['subjects']) > 3 else '') if cg['subjects'] else '—',
+            'course_code': f"{len(cg['subjects'])} Subject(s)",
+            'course_name': '',
+            'student_count': cg['student_count'],
+            'asm_count': cg['asm_count'],
+            'sub_count': cg['sub_count'],
+            'eval_count': eval_cnt,
+            'pending_count': cg['pending_count'],
+            'completion_rate': c_rate
+        })
+
+    # 4. Summary Totals (खालच्या रो मधील Total Summary)
+    summary_totals = {
+        'total_courses': len(course_performance),
+        'total_classes': len(class_breakdown),
+        'total_students': total_students,
+        'total_assessments': total_assessments,
+        'total_submissions': total_submissions,
+        'total_evaluated': evaluated_submissions,
+        'total_pending': pending_evaluations,
+        'overall_completion_rate': round((evaluated_submissions / total_submissions) * 100) if total_submissions > 0 else 100
+    }
+    
+    # 5. Recent Assessments
     cursor.execute('''
         SELECT ca.*,
                (SELECT COUNT(*) FROM submissions s WHERE s.created_assessment_id = ca.id) as submissions_count,
@@ -2489,7 +2876,7 @@ def get_teacher_dashboard_stats():
     ''', (teacher_id,))
     recent_assessments = [dict(r) for r in cursor.fetchall()]
     
-    # 4. Recent Submissions
+    # 6. Recent Submissions
     cursor.execute('''
         SELECT s.*, ca.assessment_session_title, ca.assessment_type_name, ev.marks_obtained, ev.maximum_marks as eval_max_marks, ev.remarks as eval_remarks
         FROM submissions s
@@ -2546,7 +2933,9 @@ def get_teacher_dashboard_stats():
         },
         'teacher_validity': teacher_validity,
         'validity': teacher_validity,
+        'course_performance': course_performance,
         'class_breakdown': class_breakdown,
+        'summary_totals': summary_totals,
         'recent_assessments': recent_assessments,
         'recent_submissions': recent_submissions
     })

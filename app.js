@@ -4259,45 +4259,12 @@ async function loadTeacherDashboardStats() {
         : `0 student submissions received so far.`;
     }
 
-    // Class Breakdown Table
-    const cTbody = document.getElementById('t-dash-class-tbody');
-    if (cTbody) {
-      cTbody.innerHTML = '';
-      const classes = data.class_breakdown || [];
-      if (classes.length === 0) {
-        cTbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-400">No courses or classes configured yet. Click "+ Add Course" to get started.</td></tr>';
-      } else {
-        classes.forEach(c => {
-          cTbody.innerHTML += `
-            <tr class="hover:bg-teal-50/30 transition">
-              <td class="p-3">
-                <span class="font-bold text-slate-900">${escapeHtml(c.class_name)}</span>
-                <span class="text-[10px] text-teal-800 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded ml-1 font-semibold">${escapeHtml(c.semester || '')}</span>
-                <div class="text-[10px] text-slate-400 mt-0.5">${escapeHtml(c.academic_year || '')}</div>
-              </td>
-              <td class="p-3">
-                <span class="font-semibold text-slate-800">${escapeHtml(c.subject_name || '')}</span>
-                <div class="text-[10px] font-mono text-slate-400">${escapeHtml(c.course_code || '')} ${c.course_name ? '• ' + escapeHtml(c.course_name) : ''}</div>
-              </td>
-              <td class="p-3 text-center">
-                <span class="font-bold font-mono text-blue-900 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 text-xs">${c.student_count || 0}</span>
-              </td>
-              <td class="p-3 text-center">
-                <span class="font-bold font-mono text-purple-900 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200 text-xs">${c.asm_count || 0}</span>
-              </td>
-              <td class="p-3 text-center">
-                <span class="font-bold font-mono text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-xs">${c.sub_count || 0}</span>
-              </td>
-              <td class="p-3 text-right">
-                <button onclick="showTeacherSection('create-asm')" class="btn-3d-glass px-2.5 py-1 text-purple-700 rounded text-[11px] font-bold">
-                  <i class="fa-solid fa-plus mr-1"></i> Assessment
-                </button>
-              </td>
-            </tr>
-          `;
-        });
-      }
+    // Course & Subject-wise Performance Table + Bottom Total Summary Row
+    window.currentTeacherDashboardData = data;
+    if (!window.teacherPerformanceViewMode) {
+      window.teacherPerformanceViewMode = 'course';
     }
+    renderTeacherPerformanceTable();
 
     // Recent Assessments
     const rAsmBox = document.getElementById('t-dash-recent-asm');
@@ -4372,6 +4339,261 @@ async function loadTeacherDashboardStats() {
 
   } catch (e) {
     console.error('Error loading teacher dashboard stats:', e);
+  }
+}
+
+// ------------------- TEACHER PERFORMANCE TABLE (COURSE-WISE & CLASS-WISE) -------------------
+function switchPerformanceViewMode(mode) {
+  window.teacherPerformanceViewMode = mode;
+  renderTeacherPerformanceTable();
+}
+
+function quickCreateAssessmentForCourse(className, courseCode, courseName) {
+  showTeacherSection('create-asm');
+  setTimeout(() => {
+    const classSel = document.getElementById('asm-class');
+    if (classSel && className) {
+      classSel.value = className;
+      classSel.dispatchEvent(new Event('change'));
+    }
+  }, 120);
+}
+
+function renderTeacherPerformanceTable() {
+  const data = window.currentTeacherDashboardData;
+  if (!data) return;
+
+  const mode = window.teacherPerformanceViewMode || 'course';
+
+  // 1. Update toggle buttons styling
+  const btnCourse = document.getElementById('btn-view-course-mode');
+  const btnClass = document.getElementById('btn-view-class-mode');
+  if (btnCourse && btnClass) {
+    if (mode === 'course') {
+      btnCourse.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-indigo-900 border border-slate-200';
+      btnClass.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900 bg-transparent border-transparent';
+    } else {
+      btnClass.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-teal-900 border border-slate-200';
+      btnCourse.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900 bg-transparent border-transparent';
+    }
+  }
+
+  // 2. Table Header (thead)
+  const thead = document.getElementById('t-perf-thead');
+  if (thead) {
+    if (mode === 'course') {
+      thead.innerHTML = `
+        <tr>
+          <th class="p-3 w-[18%]">Class & Semester (वर्ग व सत्र)</th>
+          <th class="p-3 w-[24%]">Course / Subject & Code (अभ्यासक्रम / विषय व कोड)</th>
+          <th class="p-3 text-center w-[9%]">Students (विद्यार्थी)</th>
+          <th class="p-3 text-center w-[9%]">CIE (चाचण्या)</th>
+          <th class="p-3 text-center w-[10%]">Submissions (सबमिशन्स)</th>
+          <th class="p-3 text-center w-[9%]">Evaluated (तपासलेले)</th>
+          <th class="p-3 text-center w-[8%]">Pending (बाकी)</th>
+          <th class="p-3 text-center w-[11%]">Progress (दर %)</th>
+          <th class="p-3 text-right w-[11%]">Action</th>
+        </tr>
+      `;
+    } else {
+      thead.innerHTML = `
+        <tr>
+          <th class="p-3 w-[22%]">Class & Academic Year (वर्ग व शैक्षणिक वर्ष)</th>
+          <th class="p-3 w-[20%]">Configured Subjects (विषय / पेपर्स)</th>
+          <th class="p-3 text-center w-[9%]">Students (विद्यार्थी)</th>
+          <th class="p-3 text-center w-[9%]">CIE (चाचण्या)</th>
+          <th class="p-3 text-center w-[10%]">Submissions (सबमिशन्स)</th>
+          <th class="p-3 text-center w-[9%]">Evaluated (तपासलेले)</th>
+          <th class="p-3 text-center w-[8%]">Pending (बाकी)</th>
+          <th class="p-3 text-center w-[11%]">Progress (दर %)</th>
+          <th class="p-3 text-right w-[11%]">Action</th>
+        </tr>
+      `;
+    }
+  }
+
+  // 3. Table Body (tbody)
+  const tbody = document.getElementById('t-dash-class-tbody');
+  if (tbody) {
+    tbody.innerHTML = '';
+    const items = (mode === 'course') 
+      ? (data.course_performance || data.class_breakdown || [])
+      : (data.class_breakdown || []);
+
+    if (items.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="9" class="p-8 text-center text-slate-400">
+            <i class="fa-solid fa-graduation-cap text-3xl mb-2 text-slate-300 block"></i>
+            कोणताही अभ्यासक्रम किंवा वर्ग अद्याप जोडलेला नाही. नवीन अभ्यासक्रम जोडण्यासाठी वरील <strong>"+ Add Course"</strong> वर क्लिक करा.
+          </td>
+        </tr>
+      `;
+    } else {
+      items.forEach(c => {
+        const evalRate = c.completion_rate !== undefined ? c.completion_rate : (c.sub_count > 0 ? Math.round((c.eval_count / c.sub_count) * 100) : 0);
+        const pendingCount = c.pending_count !== undefined ? c.pending_count : Math.max(0, (c.sub_count || 0) - (c.eval_count || 0));
+        const rateColor = evalRate >= 80 
+          ? 'text-emerald-700 bg-emerald-50 border-emerald-200' 
+          : (evalRate > 0 ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-slate-500 bg-slate-50 border-slate-200');
+
+        if (mode === 'course') {
+          tbody.innerHTML += `
+            <tr class="hover:bg-indigo-50/30 transition">
+              <td class="p-3">
+                <div class="font-bold text-slate-900">${escapeHtml(c.class_name)}</div>
+                <div class="flex items-center gap-1 mt-0.5 flex-wrap">
+                  <span class="text-[10px] text-teal-800 bg-teal-50 border border-teal-200 px-1.5 py-0.2 rounded font-semibold">${escapeHtml(c.semester || '—')}</span>
+                  <span class="text-[10px] text-slate-400 font-mono">${escapeHtml(c.academic_year || '')}</span>
+                  ${c.faculty_stream ? `<span class="text-[9.5px] text-purple-700 bg-purple-50 px-1 py-0.2 rounded border border-purple-200">${escapeHtml(c.faculty_stream)}</span>` : ''}
+                </div>
+              </td>
+              <td class="p-3">
+                <div class="font-bold text-slate-900 flex items-center gap-1.5">
+                  <i class="fa-solid fa-book-bookmark text-indigo-500 text-[11px] shrink-0"></i>
+                  <span>${escapeHtml(c.subject_name || '—')}</span>
+                </div>
+                <div class="text-[10px] text-slate-500 font-mono mt-0.5">
+                  ${c.course_code && c.course_code !== '—' ? `<span class="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-bold border border-slate-200">${escapeHtml(c.course_code)}</span>` : ''}
+                  ${c.course_name ? `<span class="ml-1 text-slate-600 font-semibold">• ${escapeHtml(c.course_name)}</span>` : ''}
+                </div>
+              </td>
+              <td class="p-3 text-center">
+                <span class="font-bold font-mono text-blue-900 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 text-xs">${c.student_count || 0}</span>
+              </td>
+              <td class="p-3 text-center">
+                <span class="font-bold font-mono text-purple-900 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200 text-xs">${c.asm_count || 0}</span>
+              </td>
+              <td class="p-3 text-center">
+                <span class="font-bold font-mono text-cyan-900 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200 text-xs">${c.sub_count || 0}</span>
+              </td>
+              <td class="p-3 text-center">
+                <span class="font-bold font-mono text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-xs">${c.eval_count || 0}</span>
+              </td>
+              <td class="p-3 text-center">
+                <span class="font-bold font-mono ${pendingCount > 0 ? 'text-amber-800 bg-amber-50 border-amber-200' : 'text-slate-400 bg-slate-50 border-slate-200'} px-2 py-0.5 rounded-full border text-xs">${pendingCount}</span>
+              </td>
+              <td class="p-3 text-center">
+                <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-mono font-bold text-xs ${rateColor}">
+                  <span>${evalRate}%</span>
+                </div>
+              </td>
+              <td class="p-3 text-right whitespace-nowrap">
+                <button type="button" onclick="quickCreateAssessmentForCourse('${escapeHtml(c.class_name)}', '${escapeHtml(c.course_code || '')}', '${escapeHtml(c.course_name || c.subject_name || '')}')" class="btn-3d-glass px-2.5 py-1 text-purple-700 rounded-lg text-[11px] font-bold shadow-2xs hover:bg-purple-50" title="या कोर्ससाठी नवीन चाचणी तयार करा">
+                  <i class="fa-solid fa-plus mr-1"></i> Assessment
+                </button>
+              </td>
+            </tr>
+          `;
+        } else {
+          tbody.innerHTML += `
+            <tr class="hover:bg-teal-50/30 transition">
+              <td class="p-3">
+                <div class="font-bold text-slate-900">${escapeHtml(c.class_name)}</div>
+                <div class="text-[10px] text-slate-400 font-mono mt-0.5">${escapeHtml(c.academic_year || '')} • Sem ${escapeHtml(c.semester || '—')}</div>
+              </td>
+              <td class="p-3">
+                <div class="font-semibold text-slate-800 text-[11.5px]">${escapeHtml(c.subject_name || '—')}</div>
+                <div class="text-[10px] text-teal-700 font-mono font-bold mt-0.5">${escapeHtml(c.course_code || '')}</div>
+              </td>
+              <td class="p-3 text-center">
+                <span class="font-bold font-mono text-blue-900 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 text-xs">${c.student_count || 0}</span>
+              </td>
+              <td class="p-3 text-center">
+                <span class="font-bold font-mono text-purple-900 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200 text-xs">${c.asm_count || 0}</span>
+              </td>
+              <td class="p-3 text-center">
+                <span class="font-bold font-mono text-cyan-900 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200 text-xs">${c.sub_count || 0}</span>
+              </td>
+              <td class="p-3 text-center">
+                <span class="font-bold font-mono text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-xs">${c.eval_count || 0}</span>
+              </td>
+              <td class="p-3 text-center">
+                <span class="font-bold font-mono ${pendingCount > 0 ? 'text-amber-800 bg-amber-50 border-amber-200' : 'text-slate-400 bg-slate-50 border-slate-200'} px-2 py-0.5 rounded-full border text-xs">${pendingCount}</span>
+              </td>
+              <td class="p-3 text-center">
+                <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-mono font-bold text-xs ${rateColor}">
+                  <span>${evalRate}%</span>
+                </div>
+              </td>
+              <td class="p-3 text-right whitespace-nowrap">
+                <button type="button" onclick="quickCreateAssessmentForCourse('${escapeHtml(c.class_name)}', '', '')" class="btn-3d-glass px-2.5 py-1 text-teal-700 rounded-lg text-[11px] font-bold shadow-2xs hover:bg-teal-50">
+                  <i class="fa-solid fa-plus mr-1"></i> Assessment
+                </button>
+              </td>
+            </tr>
+          `;
+        }
+      });
+    }
+  }
+
+  // 4. Bottom Row: Total Summary (खालच्या रो मधील Total Summary Row)
+  const tfoot = document.getElementById('t-perf-tfoot');
+  if (tfoot) {
+    const s = data.stats || {};
+    const totals = data.summary_totals || {
+      total_courses: (data.course_performance || []).length,
+      total_classes: (data.class_breakdown || []).length,
+      total_students: s.total_students || 0,
+      total_assessments: s.total_assessments || 0,
+      total_submissions: s.total_submissions || 0,
+      total_evaluated: s.evaluated_submissions || 0,
+      total_pending: s.pending_evaluations || 0,
+      overall_completion_rate: (s.total_submissions > 0) ? Math.round((s.evaluated_submissions / s.total_submissions) * 100) : 100
+    };
+
+    tfoot.innerHTML = `
+      <tr class="bg-gradient-to-r from-slate-100 via-indigo-50/60 to-slate-100 border-t-2 border-indigo-300 font-bold text-slate-800">
+        <td class="p-3 font-extrabold text-indigo-950" colspan="2">
+          <div class="flex items-center gap-2.5">
+            <span class="w-7 h-7 rounded-xl bg-indigo-700 text-white flex items-center justify-center text-xs shadow-xs shrink-0">
+              <i class="fa-solid fa-calculator"></i>
+            </span>
+            <div>
+              <div class="text-xs font-black text-indigo-950 flex items-center gap-1.5">
+                <span>एकूण सारांश (Total Summary)</span>
+                <span class="text-[10px] font-normal text-indigo-700 bg-indigo-100/80 px-1.5 py-0.2 rounded border border-indigo-200">All Configured</span>
+              </div>
+              <div class="text-[10.5px] font-medium text-slate-500">
+                ${totals.total_courses || 0} Courses / Subjects across ${totals.total_classes || 0} Enrolled Classes
+              </div>
+            </div>
+          </div>
+        </td>
+        <td class="p-3 text-center">
+          <span class="font-black font-mono text-blue-950 bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-300 text-xs shadow-2xs">${totals.total_students || 0}</span>
+          <span class="text-[9px] text-blue-700 font-semibold block mt-0.5">Enrolled</span>
+        </td>
+        <td class="p-3 text-center">
+          <span class="font-black font-mono text-purple-950 bg-purple-100 px-2.5 py-1 rounded-lg border border-purple-300 text-xs shadow-2xs">${totals.total_assessments || 0}</span>
+          <span class="text-[9px] text-purple-700 font-semibold block mt-0.5">CIE Active</span>
+        </td>
+        <td class="p-3 text-center">
+          <span class="font-black font-mono text-cyan-950 bg-cyan-100 px-2.5 py-1 rounded-lg border border-cyan-300 text-xs shadow-2xs">${totals.total_submissions || 0}</span>
+          <span class="text-[9px] text-cyan-700 font-semibold block mt-0.5">Received</span>
+        </td>
+        <td class="p-3 text-center">
+          <span class="font-black font-mono text-emerald-950 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 text-xs shadow-2xs">${totals.total_evaluated || 0}</span>
+          <span class="text-[9px] text-emerald-700 font-semibold block mt-0.5">Graded</span>
+        </td>
+        <td class="p-3 text-center">
+          <span class="font-black font-mono ${(totals.total_pending || 0) > 0 ? 'text-amber-950 bg-amber-100 border-amber-300' : 'text-slate-500 bg-slate-100 border-slate-200'} px-2.5 py-1 rounded-lg border text-xs shadow-2xs">${totals.total_pending || 0}</span>
+          <span class="text-[9px] ${(totals.total_pending || 0) > 0 ? 'text-amber-700' : 'text-slate-400'} font-semibold block mt-0.5">To Grade</span>
+        </td>
+        <td class="p-3 text-center">
+          <div class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border font-mono font-black text-xs shadow-2xs ${(totals.overall_completion_rate || 0) >= 80 ? 'text-emerald-950 bg-emerald-100 border-emerald-300' : 'text-indigo-950 bg-indigo-100 border-indigo-300'}">
+            <span>${totals.overall_completion_rate || 0}%</span>
+          </div>
+          <span class="text-[9px] text-slate-500 font-semibold block mt-0.5">Overall</span>
+        </td>
+        <td class="p-3 text-right">
+          <span class="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-extrabold text-indigo-700 bg-indigo-100/90 px-2.5 py-1 rounded-lg border border-indigo-300">
+            <i class="fa-solid fa-check-double text-[9px]"></i> Total
+          </span>
+        </td>
+      </tr>
+    `;
   }
 }
 
@@ -8407,6 +8629,264 @@ async function loadAdminDashboardStats(forceRefresh = false) {
   }
 }
 
+window._adminSubjectAnalyticsData = [];
+window._adminUniversityAnalyticsData = [];
+window._adminOverviewActiveTab = 'subject';
+
+function switchAdminOverviewTab(tab) {
+  window._adminOverviewActiveTab = tab;
+  const tabSub = document.getElementById('tab-overview-subject');
+  const tabUni = document.getElementById('tab-overview-university');
+  const tabBoth = document.getElementById('tab-overview-both');
+  const secSub = document.getElementById('sec-admin-subject-analytics');
+  const secUni = document.getElementById('sec-admin-university-analytics');
+
+  const activeCls = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-purple-700 text-white shadow-xs flex items-center gap-1.5';
+  const inactiveCls = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 flex items-center gap-1.5';
+
+  if (tabSub) tabSub.className = (tab === 'subject') ? activeCls : inactiveCls;
+  if (tabUni) tabUni.className = (tab === 'university') ? activeCls : inactiveCls;
+  if (tabBoth) tabBoth.className = (tab === 'both') ? activeCls.replace('px-3.5', 'px-3') : inactiveCls.replace('px-3.5', 'px-3');
+
+  if (secSub) {
+    if (tab === 'subject' || tab === 'both') {
+      secSub.classList.remove('hidden');
+    } else {
+      secSub.classList.add('hidden');
+    }
+  }
+  if (secUni) {
+    if (tab === 'university' || tab === 'both') {
+      secUni.classList.remove('hidden');
+    } else {
+      secUni.classList.add('hidden');
+    }
+  }
+}
+
+function renderAdminSubjectAnalyticsTable(subjects) {
+  const tbody = document.getElementById('a-subject-analytics-tbody');
+  const tfoot = document.getElementById('a-subject-analytics-tfoot');
+  if (!tbody) return;
+
+  if (!subjects || subjects.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" class="p-4 text-center text-slate-400 text-xs">कोणतेही विषय सापडले नाहीत (No subject records found).</td></tr>';
+    if (tfoot) tfoot.innerHTML = '';
+    return;
+  }
+
+  let totalApproved = 0;
+  let totalPending = 0;
+  let totalStudents = 0;
+  let totalCourses = 0;
+  let totalAsm = 0;
+  let totalSub = 0;
+  let totalEval = 0;
+  let totalPendingEval = 0;
+
+  tbody.innerHTML = subjects.map((sub, idx) => {
+    totalApproved += (sub.approved_faculty || 0);
+    totalPending += (sub.pending_faculty || 0);
+    totalStudents += (sub.students_count || 0);
+    totalCourses += (sub.courses_count || 0);
+    totalAsm += (sub.asm_count || 0);
+    totalSub += (sub.sub_count || 0);
+    totalEval += (sub.eval_count || 0);
+    totalPendingEval += (sub.pending_eval_count || 0);
+
+    const compRate = sub.completion_rate || 0;
+    const badgeColor = compRate >= 80 ? 'bg-emerald-100 text-emerald-800' : (compRate >= 40 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700');
+
+    return `
+      <tr class="hover:bg-purple-50/40 transition border-b border-slate-100">
+        <td class="p-2.5 text-center font-bold text-slate-400 font-mono text-xs">${idx + 1}</td>
+        <td class="p-2.5 font-semibold text-slate-900 text-xs">
+          <div class="font-bold text-slate-800">${escapeHtml(sub.subject_name)}</div>
+          <div class="text-[10.5px] text-purple-700 font-medium">${escapeHtml(sub.faculty_stream || '')}</div>
+        </td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold text-emerald-700 bg-emerald-50/30">${sub.approved_faculty || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold ${(sub.pending_faculty > 0) ? 'text-amber-600 bg-amber-50/40' : 'text-slate-400'}">${sub.pending_faculty || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold text-blue-700">${sub.students_count || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold text-teal-700">${sub.courses_count || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold text-purple-700">${sub.asm_count || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold text-sky-700">${sub.sub_count || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold text-emerald-800 bg-emerald-50/40">${sub.eval_count || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold ${(sub.pending_eval_count > 0) ? 'text-rose-700 bg-rose-50/40' : 'text-slate-400'}">${sub.pending_eval_count || 0}</td>
+        <td class="p-2.5 text-center text-xs">
+          <span class="px-2 py-0.5 rounded-full text-[10.5px] font-bold ${badgeColor}">${compRate}%</span>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  if (tfoot) {
+    const overallCompRate = totalSub > 0 ? (totalEval / totalSub * 100).toFixed(1) : '0.0';
+    tfoot.innerHTML = `
+      <tr class="bg-gradient-to-r from-purple-100/90 via-indigo-100/90 to-purple-100/90 font-black text-slate-900 border-t-2 border-purple-400 shadow-xs">
+        <td class="p-3 text-center text-xs font-bold text-purple-900">∑</td>
+        <td class="p-3 text-xs font-bold text-purple-950 uppercase tracking-wider">एकूण सारांश (${subjects.length} विषय)</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-emerald-900 bg-emerald-100/60">${totalApproved}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-amber-900 bg-amber-100/60">${totalPending}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-blue-900">${totalStudents}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-teal-900">${totalCourses}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-purple-900">${totalAsm}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-sky-900">${totalSub}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-emerald-950 bg-emerald-200/60">${totalEval}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-rose-950 bg-rose-200/60">${totalPendingEval}</td>
+        <td class="p-3 text-center text-xs">
+          <span class="px-2 py-1 rounded-full text-[11px] font-black bg-purple-200 text-purple-900">${overallCompRate}%</span>
+        </td>
+      </tr>
+    `;
+  }
+}
+
+function renderAdminUniversityAnalyticsTable(unis) {
+  const tbody = document.getElementById('a-university-analytics-tbody');
+  const tfoot = document.getElementById('a-university-analytics-tfoot');
+  if (!tbody) return;
+
+  if (!unis || unis.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12" class="p-4 text-center text-slate-400 text-xs">कोणतीही विद्यापीठे सापडली नाहीत (No university records found).</td></tr>';
+    if (tfoot) tfoot.innerHTML = '';
+    return;
+  }
+
+  let totalColleges = 0;
+  let totalApproved = 0;
+  let totalPending = 0;
+  let totalStudents = 0;
+  let totalCourses = 0;
+  let totalAsm = 0;
+  let totalSub = 0;
+  let totalEval = 0;
+  let totalPendingEval = 0;
+
+  tbody.innerHTML = unis.map((u, idx) => {
+    totalColleges += (u.colleges_count || 0);
+    totalApproved += (u.approved_faculty || 0);
+    totalPending += (u.pending_faculty || 0);
+    totalStudents += (u.students_count || 0);
+    totalCourses += (u.courses_count || 0);
+    totalAsm += (u.asm_count || 0);
+    totalSub += (u.sub_count || 0);
+    totalEval += (u.eval_count || 0);
+    totalPendingEval += (u.pending_eval_count || 0);
+
+    const compRate = u.completion_rate || 0;
+    const badgeColor = compRate >= 80 ? 'bg-emerald-100 text-emerald-800' : (compRate >= 40 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700');
+
+    return `
+      <tr class="hover:bg-indigo-50/40 transition border-b border-slate-100">
+        <td class="p-2.5 text-center font-bold text-slate-400 font-mono text-xs">${idx + 1}</td>
+        <td class="p-2.5 font-bold text-slate-900 text-xs flex items-center gap-1.5">
+          <i class="fa-solid fa-building-columns text-indigo-500 text-xs"></i>
+          <span>${escapeHtml(u.university_name)}</span>
+        </td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold text-indigo-700 bg-indigo-50/30">${u.colleges_count || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold text-emerald-700 bg-emerald-50/30">${u.approved_faculty || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold ${(u.pending_faculty > 0) ? 'text-amber-600 bg-amber-50/40' : 'text-slate-400'}">${u.pending_faculty || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold text-blue-700">${u.students_count || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold text-teal-700">${u.courses_count || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold text-purple-700">${u.asm_count || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold text-sky-700">${u.sub_count || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold text-emerald-800 bg-emerald-50/40">${u.eval_count || 0}</td>
+        <td class="p-2.5 text-center text-xs font-mono font-bold ${(u.pending_eval_count > 0) ? 'text-rose-700 bg-rose-50/40' : 'text-slate-400'}">${u.pending_eval_count || 0}</td>
+        <td class="p-2.5 text-center text-xs">
+          <span class="px-2 py-0.5 rounded-full text-[10.5px] font-bold ${badgeColor}">${compRate}%</span>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  if (tfoot) {
+    const overallCompRate = totalSub > 0 ? (totalEval / totalSub * 100).toFixed(1) : '0.0';
+    tfoot.innerHTML = `
+      <tr class="bg-gradient-to-r from-indigo-100/90 via-purple-100/90 to-indigo-100/90 font-black text-slate-900 border-t-2 border-indigo-400 shadow-xs">
+        <td class="p-3 text-center text-xs font-bold text-indigo-900">∑</td>
+        <td class="p-3 text-xs font-bold text-indigo-950 uppercase tracking-wider">एकूण सारांश (${unis.length} विद्यापीठे)</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-indigo-950 bg-indigo-200/60">${totalColleges}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-emerald-900 bg-emerald-100/60">${totalApproved}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-amber-900 bg-amber-100/60">${totalPending}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-blue-900">${totalStudents}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-teal-900">${totalCourses}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-purple-900">${totalAsm}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-sky-900">${totalSub}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-emerald-950 bg-emerald-200/60">${totalEval}</td>
+        <td class="p-3 text-center text-xs font-mono font-black text-rose-950 bg-rose-200/60">${totalPendingEval}</td>
+        <td class="p-3 text-center text-xs">
+          <span class="px-2 py-1 rounded-full text-[11px] font-black bg-indigo-200 text-indigo-900">${overallCompRate}%</span>
+        </td>
+      </tr>
+    `;
+  }
+}
+
+function searchAdminSubjectAnalytics(val) {
+  const q = (val || '').toLowerCase().trim();
+  const all = window._adminSubjectAnalyticsData || [];
+  if (!q) {
+    renderAdminSubjectAnalyticsTable(all);
+    return;
+  }
+  const filtered = all.filter(s => 
+    (s.subject_name && s.subject_name.toLowerCase().includes(q)) ||
+    (s.faculty_stream && s.faculty_stream.toLowerCase().includes(q))
+  );
+  renderAdminSubjectAnalyticsTable(filtered);
+}
+
+function searchAdminUniversityAnalytics(val) {
+  const q = (val || '').toLowerCase().trim();
+  const all = window._adminUniversityAnalyticsData || [];
+  if (!q) {
+    renderAdminUniversityAnalyticsTable(all);
+    return;
+  }
+  const filtered = all.filter(u => 
+    (u.university_name && u.university_name.toLowerCase().includes(q))
+  );
+  renderAdminUniversityAnalyticsTable(filtered);
+}
+
+function exportAdminSubjectAnalyticsCSV() {
+  const subs = window._adminSubjectAnalyticsData || [];
+  if (subs.length === 0) {
+    showToast('कोणताही डेटा उपलब्ध नाही (No data to export)', 'warning');
+    return;
+  }
+  let csv = 'Sr,Subject Name,Faculty Stream,Approved Faculty,Pending Faculty,Students,Courses,CIE Sessions,Submissions,Evaluations Done,Pending Evaluations,Completion Rate %\n';
+  subs.forEach((s, i) => {
+    csv += `${i + 1},"${(s.subject_name || '').replace(/"/g, '""')}","${(s.faculty_stream || '').replace(/"/g, '""')}",${s.approved_faculty || 0},${s.pending_faculty || 0},${s.students_count || 0},${s.courses_count || 0},${s.asm_count || 0},${s.sub_count || 0},${s.eval_count || 0},${s.pending_eval_count || 0},${s.completion_rate || 0}%\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `subject_wise_summary_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportAdminUniversityAnalyticsCSV() {
+  const unis = window._adminUniversityAnalyticsData || [];
+  if (unis.length === 0) {
+    showToast('कोणताही डेटा उपलब्ध नाही (No data to export)', 'warning');
+    return;
+  }
+  let csv = 'Sr,University Name,Colleges Count,Approved Faculty,Pending Faculty,Students,Courses,CIE Sessions,Submissions,Evaluations Done,Pending Evaluations,Completion Rate %\n';
+  unis.forEach((u, i) => {
+    csv += `${i + 1},"${(u.university_name || '').replace(/"/g, '""')}",${u.colleges_count || 0},${u.approved_faculty || 0},${u.pending_faculty || 0},${u.students_count || 0},${u.courses_count || 0},${u.asm_count || 0},${u.sub_count || 0},${u.eval_count || 0},${u.pending_eval_count || 0},${u.completion_rate || 0}%\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `university_wise_summary_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function renderAdminDashboardStats(data) {
   try {
     const s = data.stats || {};
@@ -8416,6 +8896,23 @@ function renderAdminDashboardStats(data) {
     if (document.getElementById('a-stat-assessments')) document.getElementById('a-stat-assessments').innerText = s.total_assessments ?? 0;
     if (document.getElementById('a-stat-submissions')) document.getElementById('a-stat-submissions').innerText = s.total_submissions ?? 0;
     if (document.getElementById('a-stat-courses')) document.getElementById('a-stat-courses').innerText = s.total_courses ?? 0;
+    if (document.getElementById('a-stat-universities')) document.getElementById('a-stat-universities').innerText = s.total_universities ?? 0;
+    if (document.getElementById('a-stat-colleges')) document.getElementById('a-stat-colleges').innerText = s.total_colleges ?? 0;
+    if (document.getElementById('a-stat-evaluated')) document.getElementById('a-stat-evaluated').innerText = s.total_evaluated ?? 0;
+    if (document.getElementById('a-stat-pending-eval')) document.getElementById('a-stat-pending-eval').innerText = s.total_pending_eval ?? 0;
+
+    window._adminSubjectAnalyticsData = data.subject_analytics || [];
+    window._adminUniversityAnalyticsData = data.university_analytics || [];
+
+    if (document.getElementById('a-badge-subject-count')) {
+      document.getElementById('a-badge-subject-count').innerText = `${window._adminSubjectAnalyticsData.length}`;
+    }
+    if (document.getElementById('a-badge-uni-count')) {
+      document.getElementById('a-badge-uni-count').innerText = `${window._adminUniversityAnalyticsData.length}`;
+    }
+
+    renderAdminSubjectAnalyticsTable(window._adminSubjectAnalyticsData);
+    renderAdminUniversityAnalyticsTable(window._adminUniversityAnalyticsData);
 
   if (document.getElementById('admin-pending-nav-badge')) {
     document.getElementById('admin-pending-nav-badge').innerText = s.pending_teachers || 0;
