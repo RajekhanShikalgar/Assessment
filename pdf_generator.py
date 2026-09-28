@@ -135,11 +135,22 @@ def clean_html_for_reportlab(html_text):
     """
     Sanitizes HTML from Quill or rich text editors so ReportLab's XML parser
     can parse it without crashing on invalid attributes (like style, class, data-list).
+    Converts math and common HTML entities to unicode for proper ReportLab rendering.
     """
     if not html_text:
         return ""
     text = str(html_text)
+    # Convert HTML entities to font-supported unicode/ascii symbols so ReportLab doesn't display raw entities
     text = text.replace("&nbsp;", " ")
+    text = text.replace("&ge;", ">=")
+    text = text.replace("&le;", "<=")
+    text = text.replace("≥", ">=")
+    text = text.replace("≤", "<=")
+    text = text.replace("&times;", "×")
+    text = text.replace("&divide;", "÷")
+    text = text.replace("&#x27;", "'")
+    text = text.replace("&apos;", "'")
+    text = text.replace("&quot;", '"')
     
     # Block level transformations
     text = re.sub(r'<(?:h1|h2|h3|h4|h5|h6)[^>]*>(.*?)</(?:h1|h2|h3|h4|h5|h6)>', r'<br/><b>\1</b><br/>', text, flags=re.I|re.S)
@@ -198,20 +209,25 @@ def safe_paragraph(text, style):
     """
     Wraps text in a ReportLab Paragraph safely with multi-tier fallback
     so PDF generation never crashes on malformed markup.
+    Automatically enables OpenType complex script shaping for Devanagari.
     """
     if text is None:
         text = ""
+    if hasattr(style, 'shaping'):
+        style.shaping = 1
+
     cleaned = clean_html_for_reportlab(str(text))
     try:
         return Paragraph(cleaned, style)
     except Exception:
         try:
             plain = re.sub(r'<[^>]+>', ' ', str(text))
+            plain = plain.replace('&ge;', '≥').replace('&times;', '×').replace('&le;', '≤').replace('&#x27;', "'").replace('&apos;', "'")
             plain = plain.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br/>')
             return Paragraph(plain, style)
         except Exception:
             try:
-                escaped = html.escape(str(text)).replace('\n', '<br/>')
+                escaped = html.escape(str(text), quote=False).replace('\n', '<br/>')
                 return Paragraph(escaped, style)
             except Exception:
                 return Paragraph("—", style)
@@ -862,6 +878,16 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
     )
 
     styles = getSampleStyleSheet()
+    styles['Normal'].shaping = 1
+    styles['Normal'].fontName = PDF_FONT_NORMAL
+
+    def xml_clean(val):
+        if val is None:
+            return ""
+        val = html.unescape(str(val))
+        val = val.replace('&ge;', '>=').replace('&times;', '×').replace('&le;', '<=').replace('&#x27;', "'").replace('&apos;', "'")
+        val = val.replace('≥', '>=').replace('≤', '<=')
+        return val.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
     
     header_naac_style = ParagraphStyle(
         'NAACHeader',
@@ -870,6 +896,7 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
         fontSize=9,
         leading=12,
         alignment=1,
+        shaping=1,
         textColor=colors.HexColor("#1E3A8A")
     )
     
@@ -880,6 +907,7 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
         fontSize=13,
         leading=16,
         alignment=1,
+        shaping=1,
         textColor=colors.HexColor("#0F172A")
     )
     
@@ -890,6 +918,7 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
         fontSize=8.5,
         leading=11,
         alignment=1,
+        shaping=1,
         textColor=colors.HexColor("#475569")
     )
     
@@ -899,6 +928,7 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
         fontName=PDF_FONT_BOLD,
         fontSize=10,
         leading=13,
+        shaping=1,
         textColor=colors.HexColor("#1E3A8A"),
         spaceBefore=8,
         spaceAfter=4
@@ -910,6 +940,7 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
         fontName=PDF_FONT_BOLD,
         fontSize=7.5,
         leading=9.5,
+        shaping=1,
         textColor=colors.HexColor("#1E293B")
     )
     
@@ -919,6 +950,7 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
         fontName=PDF_FONT_NORMAL,
         fontSize=7.5,
         leading=9.5,
+        shaping=1,
         textColor=colors.HexColor("#334155")
     )
     
@@ -929,6 +961,7 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
         fontSize=7.5,
         leading=9.5,
         alignment=1,
+        shaping=1,
         textColor=colors.white
     )
 
@@ -936,18 +969,31 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
 
     # 1. Official Header
     acad_yr = data.get('academic_year', '2026–27')
+    summary = data.get('summary', {})
+    aishe_code = data.get('aishe_code') or (summary.get('aishe_code') if summary else None) or ''
+    college_code = data.get('college_code') or (summary.get('college_code') if summary else None) or ''
+
     header_html = "<b>NATIONAL ASSESSMENT AND ACCREDITATION COUNCIL (NAAC)</b><br/>" \
-                  "<font size='8' color='#D97706'>CRITERION 2.6 – STUDENT PERFORMANCE AND LEARNING OUTCOMES</font><br/>" \
-                  "<font size='7.5' color='#1E3A8A'>Institutional Outcome-Based Education (OBE) Attainment Assessment Record</font>"
+                  "<font size='9' color='#1E3A8A'><b>STUDENT PERFORMANCE AND LEARNING OUTCOMES</b></font><br/>" \
+                  "<font size='7.5' color='#475569'>Institutional Outcome-Based Education (OBE) Attainment Assessment Report</font>"
     story.append(safe_paragraph(header_html, header_naac_style))
     story.append(Spacer(1, 4))
     
+    code_sub = []
+    if aishe_code and aishe_code != 'N/A':
+        code_sub.append(f"AISHE Code: <b>{xml_clean(aishe_code)}</b>")
+    if college_code and college_code != 'N/A':
+        code_sub.append(f"Affiliation / College Code: <b>{xml_clean(college_code)}</b>")
+    code_sub.append(f"Affiliated to {xml_clean(university_name)}")
+    code_sub.append(f"Academic Year: <b>{acad_yr}</b>")
+    code_str = " &nbsp;|&nbsp; ".join(code_sub)
+
     college_header_box = [
         [
-            safe_paragraph(f"<b>{html.escape(college_name.upper())}</b>", college_title_style)
+            safe_paragraph(f"<b>{xml_clean(college_name.upper())}</b>", college_title_style)
         ],
         [
-            safe_paragraph(f"Affiliated to {html.escape(university_name)} | Academic Year: <b>{acad_yr}</b>", univ_sub_style)
+            safe_paragraph(code_str, univ_sub_style)
         ]
     ]
     college_tbl = Table(college_header_box, colWidths=[523])
@@ -962,7 +1008,6 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
     story.append(Spacer(1, 6))
 
     # 2. Executive Summary Metrics
-    summary = data.get('summary', {})
     tot_courses = summary.get('total_courses_count', 0)
     eval_courses = summary.get('evaluated_courses_count', 0)
     coverage_pct = summary.get('coverage_percentage', 0.0)
@@ -979,27 +1024,27 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
     }
     lvl_color = level_color_map.get(overall_level, "#2563EB")
 
-    story.append(safe_paragraph("<b>1. कार्यकारी सारांश व साध्यता निर्देशांक (Executive Attainment Summary)</b>", section_h2_style))
+    story.append(safe_paragraph("<b>1. Executive Attainment Summary & Institutional Performance Indicators</b>", section_h2_style))
     
     summary_data = [
         [
-            safe_paragraph("<b>Total Courses Mapped:</b><br/>नोंदणीकृत अभ्यासक्रम", cell_bold),
-            safe_paragraph(f"<b>{tot_courses}</b>", cell_regular),
-            safe_paragraph("<b>Evaluated Courses:</b><br/>मूल्यांकित अभ्यासक्रम", cell_bold),
-            safe_paragraph(f"<b>{eval_courses}</b>", cell_regular),
-            safe_paragraph("<b>Audit Coverage:</b><br/>कव्हरेज प्रमाण", cell_bold),
+            safe_paragraph("<b>Total Courses Mapped:</b>", cell_bold),
+            safe_paragraph(f"<b>{tot_courses} Courses</b>", cell_regular),
+            safe_paragraph("<b>Evaluated Courses:</b>", cell_bold),
+            safe_paragraph(f"<b>{eval_courses} Courses</b>", cell_regular),
+            safe_paragraph("<b>Academic Audit Coverage:</b>", cell_bold),
             safe_paragraph(f"<b>{coverage_pct:.1f}%</b>", cell_regular)
         ],
         [
-            safe_paragraph("<b>Faculty Members:</b><br/>सहभागी प्राध्यापक", cell_bold),
-            safe_paragraph(f"<b>{tch_count} Faculty</b>", cell_regular),
-            safe_paragraph("<b>Students Evaluated:</b><br/>परीक्षित विद्यार्थी", cell_bold),
-            safe_paragraph(f"<b>{students_count}</b>", cell_regular),
-            safe_paragraph("<b>Attainment Index:</b><br/>एकूण साध्यता स्तर", cell_bold),
+            safe_paragraph("<b>Participating Faculty:</b>", cell_bold),
+            safe_paragraph(f"<b>{tch_count} Members</b>", cell_regular),
+            safe_paragraph("<b>Students Evaluated:</b>", cell_bold),
+            safe_paragraph(f"<b>{students_count} Students</b>", cell_regular),
+            safe_paragraph("<b>Institutional Attainment:</b>", cell_bold),
             safe_paragraph(f"<font color='{lvl_color}'><b>{overall_attainment:.1f}% (Level {overall_level})</b></font>", cell_bold)
         ]
     ]
-    summary_table = Table(summary_data, colWidths=[100, 75, 100, 75, 95, 78])
+    summary_table = Table(summary_data, colWidths=[110, 75, 100, 75, 105, 58])
     summary_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
         ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
@@ -1013,14 +1058,90 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
     story.append(summary_table)
     story.append(Spacer(1, 6))
 
-    # 3. Programme Outcomes (PO1 to PO12) Attainment Matrix
-    story.append(safe_paragraph("<b>2. पदवी कार्यक्रम फलनिष्पत्ती साध्यता तक्ता (Programme Outcomes [PO1–PO12] Attainment Matrix)</b>", section_h2_style))
+    # 3. Faculty / Stream-wise Attainment Summary
+    stream_list = data.get('stream_summary', [])
+    if stream_list:
+        story.append(safe_paragraph("<b>2. Faculty / Stream-wise Attainment Summary (Inter-Disciplinary Overview)</b>", section_h2_style))
+        stream_table_data = [
+            [
+                safe_paragraph("Faculty / Academic Stream", th_style),
+                safe_paragraph("Departments", th_style),
+                safe_paragraph("Courses (Total / Eval)", th_style),
+                safe_paragraph("Students Evaluated", th_style),
+                safe_paragraph("Average Attainment (%)", th_style),
+                safe_paragraph("NAAC Level", th_style)
+            ]
+        ]
+        for s in stream_list:
+            s_lvl = s.get('naac_level', 0)
+            s_color = level_color_map.get(s_lvl, "#2563EB")
+            stream_table_data.append([
+                safe_paragraph(f"<b>{xml_clean(s.get('stream_name', ''))}</b>", cell_bold),
+                safe_paragraph(f"<center>{s.get('departments_count', 0)} Departments</center>", cell_regular),
+                safe_paragraph(f"<center>{s.get('total_courses', 0)} / {s.get('evaluated_courses', 0)}</center>", cell_regular),
+                safe_paragraph(f"<center>{s.get('students_evaluated', 0)}</center>", cell_regular),
+                safe_paragraph(f"<center><b>{s.get('attainment_pct', 0.0):.1f}%</b></center>", cell_bold),
+                safe_paragraph(f"<center><font color='{s_color}'><b>Level {s_lvl}</b></font></center>", cell_bold)
+            ])
+        s_table = Table(stream_table_data, colWidths=[153, 80, 95, 75, 75, 45])
+        s_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#312E81")), # Indigo
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#312E81")),
+            ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor("#EEF2FF")]),
+        ]))
+        story.append(s_table)
+        story.append(Spacer(1, 6))
+
+    # 4. Department-wise Attainment Summary
+    dept_list = data.get('department_summary', [])
+    if dept_list:
+        story.append(safe_paragraph("<b>3. Department-wise Attainment Summary (Academic Units Attainment Index)</b>", section_h2_style))
+        dept_table_data = [
+            [
+                safe_paragraph("Department / Academic Unit", th_style),
+                safe_paragraph("Faculty Stream", th_style),
+                safe_paragraph("Faculty", th_style),
+                safe_paragraph("Courses (Tot / Eval)", th_style),
+                safe_paragraph("Students Evaluated", th_style),
+                safe_paragraph("Attainment (%)", th_style),
+                safe_paragraph("Level", th_style)
+            ]
+        ]
+        for d in dept_list:
+            d_lvl = d.get('naac_level', 0)
+            d_color = level_color_map.get(d_lvl, "#2563EB")
+            dept_table_data.append([
+                safe_paragraph(f"<b>{xml_clean(d.get('department_name', ''))}</b>", cell_bold),
+                safe_paragraph(f"<font size='6.5' color='#64748B'>{xml_clean(d.get('faculty_stream', ''))}</font>", cell_regular),
+                safe_paragraph(f"<center>{d.get('teachers_count', 0)}</center>", cell_regular),
+                safe_paragraph(f"<center>{d.get('total_courses', 0)} / {d.get('evaluated_courses', 0)}</center>", cell_regular),
+                safe_paragraph(f"<center>{d.get('students_evaluated', 0)}</center>", cell_regular),
+                safe_paragraph(f"<center><b>{d.get('attainment_pct', 0.0):.1f}%</b></center>", cell_bold),
+                safe_paragraph(f"<center><font color='{d_color}'><b>L-{d_lvl}</b></font></center>", cell_bold)
+            ])
+        d_table = Table(dept_table_data, colWidths=[140, 105, 45, 80, 58, 55, 40])
+        d_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#065F46")), # Emerald Dark
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#065F46")),
+            ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor("#ECFDF5")]),
+        ]))
+        story.append(d_table)
+        story.append(Spacer(1, 6))
+
+    # 5. Programme Outcomes (PO1 to PO12) Attainment Matrix
+    story.append(safe_paragraph("<b>4. Programme Outcomes (PO1–PO12) Institutional Attainment Matrix</b>", section_h2_style))
     
     po_list = data.get('po_attainment_list', [])
     po_table_data = [
         [
             safe_paragraph("PO Code", th_style),
-            safe_paragraph("Programme Outcome (PO) Title & Purpose", th_style),
+            safe_paragraph("Programme Outcome (PO) Title & Purpose Scope", th_style),
             safe_paragraph("Courses Mapped", th_style),
             safe_paragraph("Attainment (%)", th_style),
             safe_paragraph("NAAC Level", th_style),
@@ -1031,10 +1152,13 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
     for p in po_list:
         lvl = p.get('naac_level', 1)
         p_color = level_color_map.get(lvl, "#2563EB")
-        status_label = f"<font color='{p_color}'><b>Level {lvl} (साध्य)</b></font>" if lvl >= 1 else "<font color='#DC2626'><b>Not Attained</b></font>"
+        status_label = f"<font color='{p_color}'><b>Level {lvl} (Attained)</b></font>" if lvl >= 1 else "<font color='#DC2626'><b>Not Attained</b></font>"
+        po_title_clean = xml_clean(p.get('po_title_en') or p.get('po_title', ''))
+        po_desc_raw = xml_clean(p.get('po_description_en') or p.get('po_description', ''))
+        po_desc_clean = (po_desc_raw[:120] + '...') if len(po_desc_raw) > 120 else po_desc_raw
         po_table_data.append([
-            safe_paragraph(f"<b>{html.escape(p.get('po_code', ''))}</b>", cell_bold),
-            safe_paragraph(f"<b>{html.escape(p.get('po_title', ''))}</b><br/><font size='6' color='#64748B'>{html.escape(p.get('po_description', ''))[:95]}...</font>", cell_regular),
+            safe_paragraph(f"<b>{xml_clean(p.get('po_code', ''))}</b>", cell_bold),
+            safe_paragraph(f"<b>{po_title_clean}</b><br/><font size='6' color='#64748B'>{po_desc_clean}</font>", cell_regular),
             safe_paragraph(f"<center>{p.get('mapped_courses_count', 0)}</center>", cell_regular),
             safe_paragraph(f"<center><b>{p.get('attainment_pct', 0.0):.1f}%</b></center>", cell_regular),
             safe_paragraph(f"<center><b>Level {lvl}</b></center>", cell_bold),
@@ -1053,14 +1177,14 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
     story.append(po_table)
     story.append(Spacer(1, 6))
 
-    # 4. Course-wise & Faculty Breakdown (पारदर्शक सहभाग तपशील)
-    story.append(safe_paragraph("<b>3. अभ्यासक्रम व प्राध्यापकनिहाय साध्यता तपशील (Faculty & Course-wise Attainment Breakdown)</b>", section_h2_style))
+    # 6. Course-wise & Faculty Breakdown
+    story.append(safe_paragraph("<b>5. Faculty & Course-wise Detailed Attainment Record</b>", section_h2_style))
     
     teacher_breakdown = data.get('teacher_breakdown', [])
     t_table_data = [
         [
-            safe_paragraph("Faculty Member (प्राध्यापक)", th_style),
-            safe_paragraph("Subject & Course", th_style),
+            safe_paragraph("Faculty Member", th_style),
+            safe_paragraph("Subject & Course Details", th_style),
             safe_paragraph("Class & Sem", th_style),
             safe_paragraph("Students (Eval / Target)", th_style),
             safe_paragraph("Attainment (%)", th_style),
@@ -1068,13 +1192,13 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
         ]
     ]
 
-    for t in teacher_breakdown[:35]: # Display up to 35 courses cleanly
+    for t in teacher_breakdown[:40]: # Cleanly paginate/limit display
         t_lvl = t.get('naac_level', 1)
         t_color = level_color_map.get(t_lvl, "#2563EB")
         t_table_data.append([
-            safe_paragraph(f"<b>{html.escape(t.get('teacher_name', ''))}</b><br/><font size='6' color='#64748B'>{html.escape(t.get('designation', 'Faculty'))}</font>", cell_regular),
-            safe_paragraph(f"<b>{html.escape(t.get('course_name', ''))}</b> ({html.escape(t.get('course_code', ''))})<br/><font size='6' color='#64748B'>{html.escape(t.get('subject_name', ''))}</font>", cell_regular),
-            safe_paragraph(f"{html.escape(t.get('class_name', ''))}", cell_regular),
+            safe_paragraph(f"<b>{xml_clean(t.get('teacher_name', ''))}</b><br/><font size='6' color='#64748B'>{xml_clean(t.get('designation', 'Faculty'))}</font>", cell_regular),
+            safe_paragraph(f"<b>{xml_clean(t.get('course_name', ''))}</b> ({xml_clean(t.get('course_code', ''))})<br/><font size='6' color='#64748B'>{xml_clean(t.get('department_name', t.get('subject_name', '')))}</font>", cell_regular),
+            safe_paragraph(f"{xml_clean(t.get('class_name', ''))}", cell_regular),
             safe_paragraph(f"<center>{t.get('students_evaluated', 0)} / {t.get('students_meeting_target', 0)}</center>", cell_regular),
             safe_paragraph(f"<center><b>{t.get('attainment_pct', 0.0):.1f}%</b></center>", cell_bold),
             safe_paragraph(f"<center><font color='{t_color}'><b>L-{t_lvl}</b></font></center>", cell_bold)
@@ -1102,21 +1226,29 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
     story.append(t_table)
     story.append(Spacer(1, 6))
 
-    # 5. Mathematical Methodology & NAAC Benchmarks
-    story.append(safe_paragraph("<b>4. फलनिष्पत्ती गणिती पद्धत व बेंचमार्क सूत्र (Mathematical Calculation Methodology & NAAC Scale)</b>", section_h2_style))
+    # 7. Mathematical Methodology & NAAC Benchmarks (100% English)
+    story.append(safe_paragraph("<b>6. Mathematical Calculation Methodology & NAAC Attainment Framework</b>", section_h2_style))
     
     math_text = (
-        "<b>1. Course Outcome (CO) Attainment Formula:</b><br/>"
-        "&nbsp;&nbsp;&nbsp;&nbsp;<b>CO Attainment (%) = (Number of Students scoring &ge; 60% in Assessment / Total Evaluated Students) &times; 100</b><br/>"
-        "<b>2. NAAC 3-Point Attainment Level Scale:</b><br/>"
-        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 3 (High Attainment):</b> &ge; 70% of evaluated students achieved target benchmark (&ge;60% marks).<br/>"
-        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 2 (Medium Attainment):</b> 60% – 69% of evaluated students achieved target benchmark.<br/>"
-        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 1 (Low Attainment):</b> 50% – 59% of evaluated students achieved target benchmark.<br/>"
-        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 0 (Not Attained):</b> &lt; 50% of evaluated students achieved target benchmark.<br/>"
-        "<b>3. Institutional Program Outcome (PO) Attainment:</b><br/>"
-        "&nbsp;&nbsp;&nbsp;&nbsp;Consolidated average of attainment scores across all courses mapped to the respective Program Outcome.<br/>"
-        "<b>4. Coverage & Participation Transparency:</b><br/>"
-        f"&nbsp;&nbsp;&nbsp;&nbsp;Academic Coverage = ({eval_courses} evaluated courses / {tot_courses} registered courses) &times; 100 = <b>{coverage_pct:.1f}%</b>."
+        "<b>1. Student Level Benchmark Threshold:</b><br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;An individual student is deemed to have attained the course competency benchmark if they score <b>≥ 60%</b> "
+        "in Continuous Internal Evaluation (CIE) components (Unit Tests, Home Assignments, Seminars, Group Discussions, Practicals).<br/><br/>"
+        "<b>2. Course Outcome (CO) Direct Attainment Formula:</b><br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;The attainment percentage for each course is computed as the proportion of evaluated students meeting the 60% benchmark:<br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;<b>Course Attainment (%) = [ (Number of Students Scoring ≥ 60% in CIE) / (Total Number of Students Evaluated) ] × 100</b><br/><br/>"
+        "<b>3. NAAC 3-Point Attainment Level Scale:</b><br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 3 (High Attainment):</b> ≥ 70% of evaluated students achieve the benchmark score (≥ 60% marks).<br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 2 (Medium Attainment):</b> 60% to 69.9% of evaluated students achieve the benchmark score.<br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 1 (Low Attainment):</b> 50% to 59.9% of evaluated students achieve the benchmark score.<br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 0 (Not Attained):</b> &lt; 50% of evaluated students achieve the benchmark score.<br/><br/>"
+        "<b>4. Department-wise and Faculty Stream Attainment Aggregation:</b><br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;The departmental attainment average is calculated as the arithmetic mean of attainment scores across all audited courses under the department:<br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;<b>Department Attainment (%) = [ Σ (Attainment % of Evaluated Department Courses) ] / (Number of Evaluated Courses)</b><br/><br/>"
+        "<b>5. Institutional Programme Outcome (PO) Attainment Matrix:</b><br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;For each Programme Outcome (PO1 to PO12), attainment is calculated by aggregating mapped Course Outcomes according to curriculum correlation weights:<br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;<b>PO Attainment (%) = [ Σ (Course Attainment % × Mapping Weight) ] / [ Σ (Mapping Weights) ]</b><br/><br/>"
+        "<b>6. Academic Audit Scope & Verification Coverage:</b><br/>"
+        f"&nbsp;&nbsp;&nbsp;&nbsp;<b>Academic Audit Coverage = ({eval_courses} Evaluated Courses / {tot_courses} Registered Courses) × 100 = {coverage_pct:.1f}%</b>"
     )
     
     math_box = [[safe_paragraph(math_text, cell_regular)]]
@@ -1132,16 +1264,18 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
     story.append(math_tbl)
     story.append(Spacer(1, 10))
 
-    # 6. QR Code & Verification Signatures
+    # 8. QR Code & Verification Signatures (100% English)
     qr_lines = [
-        "NAAC CRITERION 2.6 OBE ATTAINMENT AUDIT",
-        f"College: {college_name}",
+        "NAAC STUDENT PERFORMANCE AND LEARNING OUTCOMES",
+        f"Institution: {college_name}",
+        f"AISHE Code: {aishe_code or 'N/A'}",
+        f"College Code: {college_code or 'N/A'}",
         f"University: {university_name}",
         f"Academic Year: {acad_yr}",
-        f"Attainment Index: {overall_attainment:.1f}% (Level {overall_level})",
+        f"Institutional Attainment Index: {overall_attainment:.1f}% (Level {overall_level})",
         f"Evaluated Courses: {eval_courses} / {tot_courses} ({coverage_pct:.1f}%)",
         f"Participating Faculty: {tch_count} Members",
-        "CIEMS Verified Academic Compliance"
+        "CIEMS Verified NAAC Compliance Record"
     ]
     qr_text = "\n".join(qr_lines)
     qr_img = None
@@ -1164,9 +1298,9 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
 
     sig_data = [
         [
-            safe_paragraph("<br/><br/>_____________________________________<br/><b>IQAC Coordinator / NAAC Steering Head</b><br/><font size='6' color='#64748B'>अंतर्गत गुणवत्ता हमी कक्ष (IQAC) समन्वयक</font>", cell_bold),
+            safe_paragraph("<br/><br/>_____________________________________<br/><b>IQAC Coordinator / NAAC Steering Committee Head</b><br/><font size='6.5' color='#64748B'>Internal Quality Assurance Cell (IQAC)</font>", cell_bold),
             qr_cell,
-            safe_paragraph("<br/><br/>_____________________________________<br/><b>Principal / Head of Institution</b><br/><font size='6' color='#64748B'>प्राचार्य / संस्थाप्रमुख स्वाक्षरी व शिक्का</font>", ParagraphStyle('PR', parent=cell_bold, alignment=2))
+            safe_paragraph("<br/><br/>_____________________________________<br/><b>Principal / Head of Institution</b><br/><font size='6.5' color='#64748B'>Official Institutional Signature &amp; Seal</font>", ParagraphStyle('PR', parent=cell_bold, alignment=2))
         ]
     ]
     sig_table = Table(sig_data, colWidths=[200, 123, 200])

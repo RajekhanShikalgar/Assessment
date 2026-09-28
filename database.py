@@ -609,6 +609,8 @@ def init_db():
         name TEXT NOT NULL,
         designation TEXT NOT NULL, -- सहाय्यक प्राध्यापक, सहयोगी प्राध्यापक, प्राध्यापक
         college_name TEXT NOT NULL,
+        aishe_code TEXT, -- e.g. C-11054 (All India Survey on Higher Education)
+        college_code TEXT, -- e.g. Col-152 (University Affiliation / College Code)
         university_name TEXT NOT NULL,
         faculty_stream TEXT NOT NULL, -- कला, विज्ञान, वाणिज्य, आंतरविद्याशाखा, इतर
         custom_stream TEXT,
@@ -944,6 +946,27 @@ def init_db():
     )
     """)
 
+    # 18b. Subject-specific Program Outcomes (Customizable POs per Subject/Course)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS subject_program_outcomes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subject_id INTEGER NOT NULL,
+        teacher_id INTEGER,
+        po_code TEXT NOT NULL,
+        po_title TEXT NOT NULL,
+        po_description TEXT,
+        po_title_en TEXT,
+        po_title_mr TEXT,
+        po_description_en TEXT,
+        po_description_mr TEXT,
+        display_order INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (subject_id) REFERENCES teacher_subjects(id) ON DELETE CASCADE,
+        UNIQUE (subject_id, po_code)
+    )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_spo_subject ON subject_program_outcomes(subject_id)")
+
     # 19. Program Specific Outcomes (PSOs per Subject/Discipline)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS program_specific_outcomes (
@@ -1053,6 +1076,10 @@ def init_db():
             cursor.execute("ALTER TABLE teachers ADD COLUMN extension_requested_year TEXT")
         if 'approval_type' not in cols_tch:
             cursor.execute("ALTER TABLE teachers ADD COLUMN approval_type TEXT DEFAULT 'new'")
+        if 'aishe_code' not in cols_tch:
+            cursor.execute("ALTER TABLE teachers ADD COLUMN aishe_code TEXT")
+        if 'college_code' not in cols_tch:
+            cursor.execute("ALTER TABLE teachers ADD COLUMN college_code TEXT")
 
         ADMIN_EMAIL = 'rajushikalgar@gmail.com'
 
@@ -1567,10 +1594,27 @@ def generate_next_submission_id(year_str=None, offset=0):
 # OUTCOME-BASED EDUCATION (OBE) HELPERS
 # ==========================================
 
-def get_all_program_outcomes():
-    """Fetch all active Program Outcomes (PO1 to PO12) with bilingual titles and descriptions."""
+def get_all_program_outcomes(subject_id=None, teacher_id=None):
+    """Fetch all active Program Outcomes. If subject_id is provided and custom subject_program_outcomes exist, return them; otherwise return universal PO1-PO12."""
     conn = get_db_connection()
     cursor = conn.cursor()
+    if subject_id:
+        cursor.execute("""
+        SELECT id, subject_id, teacher_id, po_code, po_title, po_description,
+               COALESCE(po_title_en, po_title) as po_title_en,
+               COALESCE(po_title_mr, po_title) as po_title_mr,
+               COALESCE(po_description_en, po_description) as po_description_en,
+               COALESCE(po_description_mr, po_description) as po_description_mr,
+               display_order, 1 as is_active
+        FROM subject_program_outcomes
+        WHERE subject_id = ?
+        ORDER BY display_order ASC, po_code ASC
+        """, (subject_id,))
+        rows = cursor.fetchall()
+        if rows:
+            conn.close()
+            return [dict(r) for r in rows]
+
     cursor.execute("""
     SELECT id, po_code, po_title, po_description, 
            COALESCE(po_title_en, po_title) as po_title_en,
@@ -1585,6 +1629,48 @@ def get_all_program_outcomes():
     pos = [dict(r) for r in cursor.fetchall()]
     conn.close()
     return pos
+
+def save_program_outcomes_for_subject(subject_id, teacher_id, po_list):
+    """Save or update custom Program Outcomes for a specific subject."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM subject_program_outcomes WHERE subject_id = ?", (subject_id,))
+    for idx, item in enumerate(po_list, 1):
+        po_code = (item.get('po_code') or f"PO{idx}").strip().upper()
+        po_title = (item.get('po_title') or item.get('po_title_en') or po_code).strip()
+        po_desc = (item.get('po_description') or item.get('po_description_en') or '').strip()
+        po_title_en = item.get('po_title_en') or po_title
+        po_title_mr = item.get('po_title_mr') or po_title
+        po_desc_en = item.get('po_description_en') or po_desc
+        po_desc_mr = item.get('po_description_mr') or po_desc
+        cursor.execute("""
+        INSERT INTO subject_program_outcomes (subject_id, teacher_id, po_code, po_title, po_description, po_title_en, po_title_mr, po_description_en, po_description_mr, display_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (subject_id, teacher_id, po_code, po_title, po_desc, po_title_en, po_title_mr, po_desc_en, po_desc_mr, idx))
+    conn.commit()
+    conn.close()
+    return True
+
+def save_program_specific_outcomes_for_subject(subject_id, teacher_id, pso_list):
+    """Save or update custom Program Specific Outcomes (PSOs) for a specific subject."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM program_specific_outcomes WHERE subject_id = ?", (subject_id,))
+    for idx, item in enumerate(pso_list, 1):
+        pso_code = (item.get('pso_code') or f"PSO{idx}").strip().upper()
+        pso_title = (item.get('pso_title') or item.get('pso_title_en') or pso_code).strip()
+        pso_desc = (item.get('pso_description') or item.get('pso_description_en') or '').strip()
+        pso_title_en = item.get('pso_title_en') or pso_title
+        pso_title_mr = item.get('pso_title_mr') or pso_title
+        pso_desc_en = item.get('pso_description_en') or pso_desc
+        pso_desc_mr = item.get('pso_description_mr') or pso_desc
+        cursor.execute("""
+        INSERT INTO program_specific_outcomes (subject_id, teacher_id, pso_code, pso_title, pso_description, pso_title_en, pso_title_mr, pso_description_en, pso_description_mr, display_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (subject_id, teacher_id, pso_code, pso_title, pso_desc, pso_title_en, pso_title_mr, pso_desc_en, pso_desc_mr, idx))
+    conn.commit()
+    conn.close()
+    return True
 
 def update_or_create_program_outcome(po_code, po_title, po_description, po_title_en=None, po_title_mr=None, po_description_en=None, po_description_mr=None):
     """Admin/Teacher update or create Program Outcome."""

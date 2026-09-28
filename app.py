@@ -766,7 +766,14 @@ def extract_request_token():
         request.headers.get('Authorization') or
         request.headers.get('X-Auth-Token') or
         request.args.get('auth_token') or
-        request.form.get('auth_token')
+        request.args.get('token') or
+        request.args.get('admin_token') or
+        request.form.get('auth_token') or
+        request.form.get('token') or
+        request.cookies.get('ciems_admin_token') or
+        request.cookies.get('ciems_teacher_token') or
+        request.cookies.get('ciems_token') or
+        request.cookies.get('admin_token')
     )
 
 def get_current_teacher():
@@ -1011,18 +1018,21 @@ def admin_login():
         return jsonify({'error': 'Invalid Admin credentials.'}), 401
 
     session.clear()
+    session.permanent = True
     session['admin_id'] = user['id']
     session['admin_username'] = user['username']
     session['role'] = 'admin'
 
     token = generate_auth_token('admin', user['id'])
 
-    return jsonify({
+    resp = jsonify({
         'success': True,
         'message': 'Admin login successful',
         'admin': dict(user),
         'token': token
     })
+    resp.set_cookie('ciems_admin_token', token, max_age=86400 * 30, httponly=True, samesite='Lax')
+    return resp
 
 @app.route('/api/admin/forgot-password', methods=['POST'])
 def admin_forgot_password():
@@ -2528,6 +2538,8 @@ def teacher_register():
     name = str(data.get('name', '')).strip()
     designation = str(data.get('designation', '')).strip()
     college_name = str(data.get('college_name', '')).strip()
+    aishe_code = str(data.get('aishe_code', '')).strip().upper()
+    college_code = str(data.get('college_code', '')).strip().upper()
     university_name = str(data.get('university_name', '')).strip()
     faculty_stream = str(data.get('faculty_stream', '')).strip()
     custom_stream = str(data.get('custom_stream', '')).strip()
@@ -2542,6 +2554,11 @@ def teacher_register():
     if not (name and designation and college_name and university_name and final_stream and final_subject and email and mobile):
         return jsonify({'error': 'Please fill all required registration fields.'}), 400
 
+    if not (aishe_code or college_code):
+        return jsonify({
+            'error': 'कृपया महाविद्यालयाचा AISHE कोड किंवा संलग्नता / कॉलेज कोड यांपैकी किमान एक कोड प्रविष्ट करा (Please provide either AISHE Code or Affiliation/College Code).'
+        }), 400
+
     conn = database.get_db_connection()
     cursor = conn.cursor()
 
@@ -2555,11 +2572,11 @@ def teacher_register():
             teacher_code = database.generate_clean_teacher_code(final_subject, name, next_num)
             cursor.execute("""
             UPDATE teachers 
-            SET teacher_code = ?, name = ?, designation = ?, college_name = ?, university_name = ?,
+            SET teacher_code = ?, name = ?, designation = ?, college_name = ?, aishe_code = ?, college_code = ?, university_name = ?,
                 faculty_stream = ?, custom_stream = ?, subject_name = ?, custom_subject = ?, mobile = ?,
                 status = 'pending', rejection_reason = NULL, extension_requested = 0
             WHERE id = ?
-            """, (teacher_code, name, designation, college_name, university_name, final_stream, custom_stream, final_subject, custom_subject, mobile, existing['id']))
+            """, (teacher_code, name, designation, college_name, aishe_code or None, college_code or None, university_name, final_stream, custom_stream, final_subject, custom_subject, mobile, existing['id']))
             conn.commit()
             conn.close()
             return jsonify({
@@ -2583,9 +2600,9 @@ def teacher_register():
 
     cursor.execute("""
     INSERT INTO teachers 
-    (teacher_code, name, designation, college_name, university_name, faculty_stream, custom_stream, subject_name, custom_subject, email, mobile, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-    """, (teacher_code, name, designation, college_name, university_name, final_stream, custom_stream, final_subject, custom_subject, email, mobile))
+    (teacher_code, name, designation, college_name, aishe_code, college_code, university_name, faculty_stream, custom_stream, subject_name, custom_subject, email, mobile, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+    """, (teacher_code, name, designation, college_name, aishe_code or None, college_code or None, university_name, final_stream, custom_stream, final_subject, custom_subject, email, mobile))
     new_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -4399,7 +4416,7 @@ def manage_created_assessments():
         duration_minutes = int(data.get('duration_minutes') or 0)
 
         target_co = str(data.get('target_co') or 'CO1').strip().upper()
-        if not re.match(r'^CO[1-5]$', target_co):
+        if not re.match(r'^CO\d+$', target_co):
             target_co = 'CO1'
 
         descriptive_questions = data.get('descriptive_questions') or []
@@ -6572,6 +6589,8 @@ def admin_manage_teacher(teacher_id):
         teacher_code = data.get('teacher_code', '').strip()
         designation = data.get('designation', '').strip()
         college_name = data.get('college_name', '').strip()
+        aishe_code = str(data.get('aishe_code', '')).strip().upper() or None
+        college_code = str(data.get('college_code', '')).strip().upper() or None
         university_name = data.get('university_name', '').strip()
         faculty_stream = data.get('faculty_stream', '').strip()
         subject_name = data.get('subject_name', '').strip()
@@ -6627,35 +6646,35 @@ def admin_manage_teacher(teacher_id):
             if validity_end:
                 cursor.execute("""
                 UPDATE teachers
-                SET teacher_code = ?, name = ?, designation = ?, college_name = ?, university_name = ?,
+                SET teacher_code = ?, name = ?, designation = ?, college_name = ?, aishe_code = ?, college_code = ?, university_name = ?,
                     faculty_stream = ?, subject_name = ?, email = ?, mobile = ?, status = ?,
                     password_hash = ?, temp_plain_password = ?, validity_end = ?, academic_year = COALESCE(?, academic_year)
                 WHERE id = ?
-                """, (teacher_code or None, name, designation, college_name, university_name, faculty_stream, subject_name, email, mobile, status, pwd_hash, new_password, validity_end, acad_yr, teacher_id))
+                """, (teacher_code or None, name, designation, college_name, aishe_code, college_code, university_name, faculty_stream, subject_name, email, mobile, status, pwd_hash, new_password, validity_end, acad_yr, teacher_id))
             else:
                 cursor.execute("""
                 UPDATE teachers
-                SET teacher_code = ?, name = ?, designation = ?, college_name = ?, university_name = ?,
+                SET teacher_code = ?, name = ?, designation = ?, college_name = ?, aishe_code = ?, college_code = ?, university_name = ?,
                     faculty_stream = ?, subject_name = ?, email = ?, mobile = ?, status = ?,
                     password_hash = ?, temp_plain_password = ?
                 WHERE id = ?
-                """, (teacher_code or None, name, designation, college_name, university_name, faculty_stream, subject_name, email, mobile, status, pwd_hash, new_password, teacher_id))
+                """, (teacher_code or None, name, designation, college_name, aishe_code, college_code, university_name, faculty_stream, subject_name, email, mobile, status, pwd_hash, new_password, teacher_id))
         else:
             if validity_end:
                 cursor.execute("""
                 UPDATE teachers
-                SET teacher_code = ?, name = ?, designation = ?, college_name = ?, university_name = ?,
+                SET teacher_code = ?, name = ?, designation = ?, college_name = ?, aishe_code = ?, college_code = ?, university_name = ?,
                     faculty_stream = ?, subject_name = ?, email = ?, mobile = ?, status = ?,
                     validity_end = ?, academic_year = COALESCE(?, academic_year)
                 WHERE id = ?
-                """, (teacher_code or None, name, designation, college_name, university_name, faculty_stream, subject_name, email, mobile, status, validity_end, acad_yr, teacher_id))
+                """, (teacher_code or None, name, designation, college_name, aishe_code, college_code, university_name, faculty_stream, subject_name, email, mobile, status, validity_end, acad_yr, teacher_id))
             else:
                 cursor.execute("""
                 UPDATE teachers
-                SET teacher_code = ?, name = ?, designation = ?, college_name = ?, university_name = ?,
+                SET teacher_code = ?, name = ?, designation = ?, college_name = ?, aishe_code = ?, college_code = ?, university_name = ?,
                     faculty_stream = ?, subject_name = ?, email = ?, mobile = ?, status = ?
                 WHERE id = ?
-                """, (teacher_code or None, name, designation, college_name, university_name, faculty_stream, subject_name, email, mobile, status, teacher_id))
+                """, (teacher_code or None, name, designation, college_name, aishe_code, college_code, university_name, faculty_stream, subject_name, email, mobile, status, teacher_id))
 
         conn.commit()
         conn.close()
@@ -7359,7 +7378,7 @@ def api_obe_get_course_outcomes(subject_id):
         cos = database.get_course_outcomes_for_subject(subject_id, t_id)
         if not cos:
             cos = database.get_default_course_outcomes_template()
-    pos = database.get_all_program_outcomes()
+    pos = database.get_all_program_outcomes(subject_id if subject_id != 0 else None, t_id)
     psos = database.get_all_program_specific_outcomes(subject_id if subject_id != 0 else None, t_id)
     return jsonify({
         'success': True, 
@@ -7374,7 +7393,9 @@ def api_obe_save_course_outcomes():
     teacher = get_current_teacher()
     data = request.json or {}
     subject_id = data.get('subject_id')
-    outcomes = data.get('outcomes') or data.get('course_outcomes') or []
+    outcomes = data.get('outcomes') or data.get('course_outcomes')
+    pos = data.get('program_outcomes')
+    psos = data.get('program_specific_outcomes')
 
     if not subject_id:
         return jsonify({'error': 'Subject ID is required.'}), 400
@@ -7387,8 +7408,13 @@ def api_obe_save_course_outcomes():
         return jsonify({'error': 'Subject not found or does not belong to you.'}), 404
     conn.close()
 
-    database.save_course_outcomes_for_subject(subject_id, teacher['id'], outcomes)
-    return jsonify({'success': True, 'message': 'Course Outcomes (COs) and PO mappings saved successfully!'})
+    if outcomes is not None and isinstance(outcomes, list):
+        database.save_course_outcomes_for_subject(subject_id, teacher['id'], outcomes)
+    if pos is not None and isinstance(pos, list):
+        database.save_program_outcomes_for_subject(subject_id, teacher['id'], pos)
+    if psos is not None and isinstance(psos, list):
+        database.save_program_specific_outcomes_for_subject(subject_id, teacher['id'], psos)
+    return jsonify({'success': True, 'message': 'Course Outcomes (COs), POs, and PSOs saved successfully!'})
 
 def compute_teacher_attainment_data(subject_id, teacher_id):
     """Core calculation engine for Teacher Subject Course Outcomes, PO Attainment, PSO Attainment & Articulation Matrix."""
@@ -7402,7 +7428,7 @@ def compute_teacher_attainment_data(subject_id, teacher_id):
         return None
 
     cos = database.get_course_outcomes_for_subject(subject_id, teacher_id)
-    pos = database.get_all_program_outcomes()
+    pos = database.get_all_program_outcomes(subject_id, teacher_id)
     psos = database.get_all_program_specific_outcomes(subject_id, teacher_id)
 
     # Find all assessments for this subject
@@ -7628,49 +7654,245 @@ def api_obe_teacher_attainment(subject_id):
         **result
     })
 
+GENERIC_COLLEGE_WORDS = {
+    'college', 'institute', 'department', 'school', 'academy', 'autonomous',
+    'स्वायत्त', 'महाविद्यालय', 'संस्था', 'arts', 'commerce', 'science',
+    'faculty', 'teacher', 'of', 'for', 'in', 'and', '&', 'at', 'the', 'a', 'an'
+}
+
+def extract_distinctive_college_tokens(name):
+    if not name:
+        return set()
+    s = name.lower()
+    s = re.sub(r'\bcollage\b', 'college', s)
+    s = re.sub(r'\bcolg\b', 'college', s)
+    s = re.sub(r'[\.,\-_()\[\]{}]', ' ', s)
+    tokens = [w for w in s.split() if w not in GENERIC_COLLEGE_WORDS and not w.isdigit() and len(w) > 1]
+    return set(tokens)
+
+def cluster_approved_colleges():
+    """
+    Groups fuzzy / variant college names entered by different teachers
+    into unified canonical institutions.
+    Matches primarily on AISHE Code and College Code, then falls back to distinctive text tokens.
+    """
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT id, college_name, aishe_code, college_code, university_name
+    FROM teachers
+    WHERE status = 'approved' AND college_name IS NOT NULL AND TRIM(college_name) != ''
+    ORDER BY id ASC
+    """)
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+
+    if not rows:
+        return []
+
+    clusters = []
+
+    for r in sorted(rows, key=lambda x: len(x['college_name'] or ''), reverse=True):
+        c_name = (r['college_name'] or '').strip()
+        aishe = (r.get('aishe_code') or '').strip().upper()
+        col_code = (r.get('college_code') or '').strip().upper()
+        univ = (r.get('university_name') or '').strip()
+        t_id = r['id']
+        dist_tokens = extract_distinctive_college_tokens(c_name)
+
+        matched_cluster = None
+
+        # 1. Match by AISHE Code (Highest Precision)
+        if aishe:
+            for cl in clusters:
+                if cl.get('aishe_code') and cl['aishe_code'] == aishe:
+                    matched_cluster = cl
+                    break
+
+        # 2. Match by College Code (High Precision)
+        if not matched_cluster and col_code:
+            for cl in clusters:
+                if cl.get('college_code') and cl['college_code'] == col_code:
+                    matched_cluster = cl
+                    break
+
+        # 3. Match by Distinctive Tokens (Fuzzy Fallback)
+        if not matched_cluster and dist_tokens:
+            for cl in clusters:
+                if cl.get('distinctive_tokens'):
+                    inter = dist_tokens.intersection(cl['distinctive_tokens'])
+                    if inter == dist_tokens or inter == cl['distinctive_tokens']:
+                        matched_cluster = cl
+                        break
+
+        if matched_cluster:
+            matched_cluster['aliases'].append(c_name)
+            matched_cluster['teacher_ids'].append(t_id)
+            matched_cluster['distinctive_tokens'].update(dist_tokens)
+            if not matched_cluster.get('aishe_code') and aishe:
+                matched_cluster['aishe_code'] = aishe
+            if not matched_cluster.get('college_code') and col_code:
+                matched_cluster['college_code'] = col_code
+            if not matched_cluster.get('university_name') and univ:
+                matched_cluster['university_name'] = univ
+        else:
+            clusters.append({
+                'canonical_name': c_name,
+                'aishe_code': aishe or None,
+                'college_code': col_code or None,
+                'university_name': univ,
+                'aliases': [c_name],
+                'distinctive_tokens': set(dist_tokens),
+                'teacher_ids': [t_id]
+            })
+
+    result = []
+    for cl in sorted(clusters, key=lambda x: x['canonical_name'].lower()):
+        result.append({
+            'college_name': cl['canonical_name'],
+            'canonical_name': cl['canonical_name'],
+            'aishe_code': cl.get('aishe_code') or '',
+            'college_code': cl.get('college_code') or '',
+            'university_name': cl['university_name'],
+            'approved_teachers_count': len(set(cl['teacher_ids'])),
+            'aliases': list(set(cl['aliases'])),
+            'distinctive_tokens': list(cl['distinctive_tokens']),
+            'teacher_ids': list(set(cl['teacher_ids']))
+        })
+    return result
+
 @app.route('/api/admin/colleges-list', methods=['GET'])
 @admin_required
 def api_admin_colleges_list():
-    conn = database.get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-    SELECT DISTINCT college_name, university_name, COUNT(id) as approved_teachers_count
-    FROM teachers
-    WHERE status = 'approved' AND college_name IS NOT NULL AND TRIM(college_name) != ''
-    GROUP BY college_name, university_name
-    ORDER BY college_name ASC
-    """)
-    colleges = [dict(r) for r in cursor.fetchall()]
-    conn.close()
+    colleges = cluster_approved_colleges()
     return jsonify({'success': True, 'colleges': colleges})
 
+@app.route('/api/colleges/list', methods=['GET'])
+def api_public_colleges_list():
+    colleges = cluster_approved_colleges()
+    names = [c['canonical_name'] for c in colleges]
+    return jsonify({'success': True, 'colleges': names})
+
+@app.route('/api/admin/standardize-colleges', methods=['POST'])
+@admin_required
+def api_admin_standardize_colleges():
+    clusters = cluster_approved_colleges()
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+    updated_count = 0
+    for cl in clusters:
+        canon = cl['canonical_name']
+        aishe = cl.get('aishe_code')
+        c_code = cl.get('college_code')
+        for alias in cl['aliases']:
+            if alias != canon:
+                cursor.execute("""
+                UPDATE teachers 
+                SET college_name = ?, 
+                    aishe_code = COALESCE(aishe_code, ?),
+                    college_code = COALESCE(college_code, ?)
+                WHERE college_name = ?
+                """, (canon, aishe, c_code, alias))
+                updated_count += cursor.rowcount
+    conn.commit()
+    conn.close()
+    return jsonify({
+        'success': True,
+        'message': f'{updated_count} शिक्षक नोंदी अधिकृत महाविद्यालय नावांनुसार प्रमाणित केल्या.' if updated_count else 'सर्व महाविद्यालयांची नावे आधीपासूनच प्रमाणित आहेत.',
+        'updated_count': updated_count
+    })
+
 def compute_college_naac_attainment_data(college_name, academic_year=None):
-    """Core calculation engine for College NAAC Criterion 2.6 Attainment."""
+    """
+    Core calculation engine for College NAAC Outcome Attainment with multi-teacher consolidation.
+    Computes Institutional, Faculty/Stream-wise, Department-wise, PO1-PO12, and Teacher-wise hierarchies.
+    """
     conn = database.get_db_connection()
     cursor = conn.cursor()
 
-    # Find all approved teachers for this college
-    cursor.execute("""
-    SELECT id, teacher_code, name, designation, faculty_stream, subject_name, college_name, university_name, academic_year
-    FROM teachers
-    WHERE status = 'approved' AND LOWER(TRIM(college_name)) = LOWER(TRIM(?))
-    ORDER BY name ASC
-    """, (college_name,))
-    teachers = [dict(r) for r in cursor.fetchall()]
-    if not teachers:
+    # Find all aliases and teachers in cluster
+    clusters = cluster_approved_colleges()
+    target_cluster = None
+    target_tokens = extract_distinctive_college_tokens(college_name)
+
+    for cl in clusters:
+        if cl['canonical_name'].lower() == college_name.lower():
+            target_cluster = cl
+            break
+        if college_name.lower() in [a.lower() for a in cl['aliases']]:
+            target_cluster = cl
+            break
+        if cl.get('aishe_code') and cl['aishe_code'].lower() == college_name.lower():
+            target_cluster = cl
+            break
+        if cl.get('college_code') and cl['college_code'].lower() == college_name.lower():
+            target_cluster = cl
+            break
+        if target_tokens and cl.get('distinctive_tokens'):
+            inter = target_tokens.intersection(cl['distinctive_tokens'])
+            if inter == target_tokens or inter == cl['distinctive_tokens']:
+                target_cluster = cl
+                break
+
+    if target_cluster:
+        all_alias_names = target_cluster['aliases']
+        canonical_name = target_cluster['canonical_name']
+        institutional_aishe = target_cluster.get('aishe_code') or ''
+        institutional_college_code = target_cluster.get('college_code') or ''
+        target_teacher_ids = list(set(target_cluster['teacher_ids']))
+    else:
+        all_alias_names = [college_name]
+        canonical_name = college_name
+        institutional_aishe = ''
+        institutional_college_code = ''
+        target_teacher_ids = []
+
+    if target_teacher_ids:
+        placeholders = ','.join(['?'] * len(target_teacher_ids))
+        cursor.execute(f"""
+        SELECT id, teacher_code, name, designation, faculty_stream, subject_name, college_name, aishe_code, college_code, university_name, academic_year
+        FROM teachers
+        WHERE status = 'approved' AND id IN ({placeholders})
+        ORDER BY name ASC
+        """, target_teacher_ids)
+    else:
+        placeholders = ','.join(['?'] * len(all_alias_names))
+        cursor.execute(f"""
+        SELECT id, teacher_code, name, designation, faculty_stream, subject_name, college_name, aishe_code, college_code, university_name, academic_year
+        FROM teachers
+        WHERE status = 'approved' AND (
+            college_name IN ({placeholders})
+            OR LOWER(TRIM(college_name)) = LOWER(TRIM(?))
+        )
+        ORDER BY name ASC
+        """, [*all_alias_names, college_name])
+
+    raw_teachers = [dict(r) for r in cursor.fetchall()]
+    if not raw_teachers:
         conn.close()
         return None
 
+    unique_teachers = {}
+    for t in raw_teachers:
+        unique_teachers[t['id']] = t
+    teachers = list(unique_teachers.values())
+
+    if not institutional_aishe:
+        institutional_aishe = next((t.get('aishe_code') for t in teachers if t.get('aishe_code')), '')
+    if not institutional_college_code:
+        institutional_college_code = next((t.get('college_code') for t in teachers if t.get('college_code')), '')
+
     univ_name = teachers[0]['university_name']
     teacher_ids = [t['id'] for t in teachers]
-    placeholders = ','.join(['?'] * len(teacher_ids))
+    teacher_placeholders = ','.join(['?'] * len(teacher_ids))
 
-    # Fetch all subjects taught by these teachers
+    # Fetch all subjects taught by these consolidated teachers
     cursor.execute(f"""
-    SELECT ts.*, t.name as teacher_name, t.designation as teacher_designation
+    SELECT ts.*, t.name as teacher_name, t.designation as teacher_designation,
+           t.faculty_stream as teacher_faculty_stream, t.subject_name as teacher_department
     FROM teacher_subjects ts
     JOIN teachers t ON ts.teacher_id = t.id
-    WHERE ts.teacher_id IN ({placeholders})
+    WHERE ts.teacher_id IN ({teacher_placeholders})
     ORDER BY t.name ASC, ts.course_name ASC
     """, teacher_ids)
     all_subjects = [dict(r) for r in cursor.fetchall()]
@@ -7685,9 +7907,52 @@ def compute_college_naac_attainment_data(college_name, academic_year=None):
 
     po_course_map = {po['po_code']: [] for po in pos}
 
+    dept_map = {}
+    stream_map = {}
+
     for sub in all_subjects:
         sub_id = sub['id']
         t_id = sub['teacher_id']
+        raw_dept = (sub.get('teacher_department') or sub.get('subject_name') or 'General Studies').strip()
+        raw_stream = (sub.get('teacher_faculty_stream') or 'General').strip()
+
+        # Clean display names
+        dept_name = raw_dept
+        if not dept_name.lower().startswith('department') and not dept_name.lower().startswith('विभाग'):
+            dept_name = f"Department of {dept_name}"
+
+        stream_name = raw_stream
+
+        # Initialize dept_map
+        if dept_name not in dept_map:
+            dept_map[dept_name] = {
+                'department_name': dept_name,
+                'faculty_stream': stream_name,
+                'teachers_set': set(),
+                'total_courses': 0,
+                'evaluated_courses': 0,
+                'students_evaluated': 0,
+                'students_meeting_target': 0,
+                'attainment_sum': 0.0
+            }
+        dept_map[dept_name]['total_courses'] += 1
+        dept_map[dept_name]['teachers_set'].add(t_id)
+
+        # Initialize stream_map
+        if stream_name not in stream_map:
+            stream_map[stream_name] = {
+                'stream_name': stream_name,
+                'departments_set': set(),
+                'teachers_set': set(),
+                'total_courses': 0,
+                'evaluated_courses': 0,
+                'students_evaluated': 0,
+                'students_meeting_target': 0,
+                'attainment_sum': 0.0
+            }
+        stream_map[stream_name]['total_courses'] += 1
+        stream_map[stream_name]['departments_set'].add(dept_name)
+        stream_map[stream_name]['teachers_set'].add(t_id)
 
         # Get evaluations for this subject
         cursor.execute("""
@@ -7715,9 +7980,21 @@ def compute_college_naac_attainment_data(college_name, academic_year=None):
 
             lvl = 3 if attainment_pct >= 70.0 else (2 if attainment_pct >= 60.0 else (1 if attainment_pct >= 50.0 else 0))
 
+            dept_map[dept_name]['evaluated_courses'] += 1
+            dept_map[dept_name]['students_evaluated'] += evaluated_count
+            dept_map[dept_name]['students_meeting_target'] += meeting_target
+            dept_map[dept_name]['attainment_sum'] += attainment_pct
+
+            stream_map[stream_name]['evaluated_courses'] += 1
+            stream_map[stream_name]['students_evaluated'] += evaluated_count
+            stream_map[stream_name]['students_meeting_target'] += meeting_target
+            stream_map[stream_name]['attainment_sum'] += attainment_pct
+
             teacher_breakdown.append({
                 'teacher_name': sub['teacher_name'],
                 'designation': sub['teacher_designation'],
+                'department_name': dept_name,
+                'faculty_stream': stream_name,
                 'subject_name': sub['subject_name'],
                 'course_code': sub['course_code'],
                 'course_name': sub['course_name'],
@@ -7740,6 +8017,8 @@ def compute_college_naac_attainment_data(college_name, academic_year=None):
             teacher_breakdown.append({
                 'teacher_name': sub['teacher_name'],
                 'designation': sub['teacher_designation'],
+                'department_name': dept_name,
+                'faculty_stream': stream_name,
                 'subject_name': sub['subject_name'],
                 'course_code': sub['course_code'],
                 'course_name': sub['course_name'],
@@ -7755,6 +8034,42 @@ def compute_college_naac_attainment_data(college_name, academic_year=None):
     coverage_pct = round((evaluated_courses_count / total_courses_count * 100.0), 1) if total_courses_count > 0 else 0.0
     overall_attainment_pct = round((overall_attainment_sum / evaluated_courses_count), 1) if evaluated_courses_count > 0 else 0.0
     overall_lvl = 3 if overall_attainment_pct >= 70.0 else (2 if overall_attainment_pct >= 60.0 else (1 if overall_attainment_pct >= 50.0 else 0))
+
+    # Prepare department_summary list
+    department_summary = []
+    for d_name, d_info in sorted(dept_map.items()):
+        eval_c = d_info['evaluated_courses']
+        avg_pct = round(d_info['attainment_sum'] / eval_c, 1) if eval_c > 0 else 0.0
+        d_lvl = 3 if avg_pct >= 70.0 else (2 if avg_pct >= 60.0 else (1 if avg_pct >= 50.0 else 0))
+        department_summary.append({
+            'department_name': d_name,
+            'faculty_stream': d_info['faculty_stream'],
+            'teachers_count': len(d_info['teachers_set']),
+            'total_courses': d_info['total_courses'],
+            'evaluated_courses': eval_c,
+            'students_evaluated': d_info['students_evaluated'],
+            'students_meeting_target': d_info['students_meeting_target'],
+            'attainment_pct': avg_pct,
+            'naac_level': d_lvl
+        })
+
+    # Prepare stream_summary list
+    stream_summary = []
+    for s_name, s_info in sorted(stream_map.items()):
+        eval_c = s_info['evaluated_courses']
+        avg_pct = round(s_info['attainment_sum'] / eval_c, 1) if eval_c > 0 else 0.0
+        s_lvl = 3 if avg_pct >= 70.0 else (2 if avg_pct >= 60.0 else (1 if avg_pct >= 50.0 else 0))
+        stream_summary.append({
+            'stream_name': s_name,
+            'departments_count': len(s_info['departments_set']),
+            'teachers_count': len(s_info['teachers_set']),
+            'total_courses': s_info['total_courses'],
+            'evaluated_courses': eval_c,
+            'students_evaluated': s_info['students_evaluated'],
+            'students_meeting_target': s_info['students_meeting_target'],
+            'attainment_pct': avg_pct,
+            'naac_level': s_lvl
+        })
 
     # Consolidated PO Attainment List
     po_attainment_list = []
@@ -7773,10 +8088,10 @@ def compute_college_naac_attainment_data(college_name, academic_year=None):
 
         po_attainment_list.append({
             'po_code': p_code,
-            'po_title': po['po_title'],
+            'po_title': po.get('po_title_en') or po['po_title'],
             'po_title_en': po.get('po_title_en') or po['po_title'],
             'po_title_mr': po.get('po_title_mr') or po['po_title'],
-            'po_description': po.get('po_description', ''),
+            'po_description': po.get('po_description_en') or po.get('po_description', ''),
             'po_description_en': po.get('po_description_en') or po.get('po_description', ''),
             'po_description_mr': po.get('po_description_mr') or po.get('po_description', ''),
             'mapped_courses_count': len(scores),
@@ -7788,7 +8103,10 @@ def compute_college_naac_attainment_data(college_name, academic_year=None):
 
     acad_yr = academic_year or (teachers[0].get('academic_year') or '2026–27')
     return {
-        'college_name': college_name,
+        'college_name': canonical_name,
+        'canonical_name': canonical_name,
+        'aishe_code': institutional_aishe or 'N/A',
+        'college_code': institutional_college_code or 'N/A',
         'university_name': univ_name,
         'academic_year': acad_yr,
         'summary': {
@@ -7798,15 +8116,33 @@ def compute_college_naac_attainment_data(college_name, academic_year=None):
             'participating_teachers_count': len(teachers),
             'total_students_evaluated': len(total_students_evaluated_set),
             'overall_attainment_percentage': overall_attainment_pct,
-            'overall_naac_level': overall_lvl
+            'overall_naac_level': overall_lvl,
+            'aishe_code': institutional_aishe or 'N/A',
+            'college_code': institutional_college_code or 'N/A'
         },
+        'stream_summary': stream_summary,
+        'department_summary': department_summary,
         'po_attainment_list': po_attainment_list,
         'teacher_breakdown': teacher_breakdown
     }
 
 @app.route('/api/admin/college-attainment', methods=['GET'])
-@admin_required
 def api_admin_college_attainment():
+    admin = get_current_admin()
+    teacher = get_current_teacher() if not admin else None
+    if not admin and not teacher:
+        q_tok = request.args.get('auth_token') or request.args.get('token') or request.args.get('admin_token')
+        if q_tok:
+            tok_data = decode_auth_token(q_tok)
+            if tok_data:
+                role = tok_data.get('role')
+                if role == 'admin':
+                    admin = {'id': tok_data.get('id')}
+                elif role == 'teacher':
+                    teacher = {'id': tok_data.get('id')}
+    if not admin and not teacher:
+        return jsonify({'error': 'Unauthorized. Admin login required.'}), 401
+
     college_name = str(request.args.get('college') or request.args.get('college_name') or '').strip()
     academic_year = str(request.args.get('academic_year') or '').strip()
     if not college_name:
@@ -7816,11 +8152,26 @@ def api_admin_college_attainment():
     if not report_data:
         return jsonify({'error': f"महाविद्यालय '{college_name}' साठी कोणताही मंजूर प्राध्यापक आढळला नाही."}), 404
 
-    return jsonify({'success': True, 'report_data': report_data})
+    return jsonify({'success': True, 'report_data': report_data, 'attainment_report': report_data})
 
 @app.route('/api/admin/college-attainment-pdf', methods=['GET'])
-@admin_required
 def api_admin_college_attainment_pdf():
+    admin = get_current_admin()
+    teacher = get_current_teacher() if not admin else None
+    if not admin and not teacher:
+        q_tok = request.args.get('auth_token') or request.args.get('token') or request.args.get('admin_token')
+        if q_tok:
+            tok_data = decode_auth_token(q_tok)
+            if tok_data:
+                role = tok_data.get('role')
+                if role == 'admin':
+                    admin = {'id': tok_data.get('id')}
+                elif role == 'teacher':
+                    teacher = {'id': tok_data.get('id')}
+
+    if not admin and not teacher:
+        return jsonify({'error': 'Unauthorized. Admin login required.'}), 401
+
     college_name = str(request.args.get('college') or request.args.get('college_name') or '').strip()
     academic_year = str(request.args.get('academic_year') or '').strip()
     if not college_name:

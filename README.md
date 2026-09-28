@@ -54,6 +54,20 @@ A professional, mobile-friendly, and responsive web-based **Continuous Internal 
 9. **Group Assessment Hub**:
    - Supports team projects and discussions with unique Group IDs (`RAJ-GA-YYYY-NNNNN`) linking member submissions with individual contributions.
 
+10. **Outcome-Based Education (OBE) & Bloom's Taxonomy Matrix**:
+    - Full CO-PO-PSO matrix mapping (PO1–PO12, PSO1–PSO4) with weightage correlation (Level 1 Slight, Level 2 Moderate, Level 3 Substantial).
+    - Intelligent auto-selection of relevant Course Outcome based on assessment component type (e.g. Group Discussion $\rightarrow$ CO4, Seminars $\rightarrow$ CO4, Practical/Field $\rightarrow$ CO2, Unit Test $\rightarrow$ CO1, Project Work $\rightarrow$ CO5).
+
+11. **Institutional Identification (AISHE & College Code Mandatory Registration)**:
+    - Enforces mandatory validation of AISHE Code (e.g., `C-11054`) or Affiliation/College Code (e.g., `Col-152`, `102`) during faculty onboarding.
+    - Guarantees 100% accurate code-first institutional clustering, preventing split institution records or misallocation across variant spelling names.
+
+12. **Official NAAC "Student Performance and Learning Outcomes" Attainment Engine**:
+    - Generates comprehensive, audit-ready institutional attainment reports compliant with NAAC SSR/AQAR submission standards.
+    - Exclusively in English with clean header (*"STUDENT PERFORMANCE AND LEARNING OUTCOMES"*).
+    - Multi-tier hierarchy: Faculty/Stream-wise Attainment Summary, Department-wise Attainment Summary, Course-wise Detailed Breakdown, and Institutional PO1–PO12 Matrix.
+    - Mathematical calculation methodology with full formulas (60% student benchmark, direct CO attainment, NAAC 3-point scale, and stream/department weighted averages).
+
 ---
 
 ## 🚀 Quick Start & How to Run
