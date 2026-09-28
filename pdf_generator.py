@@ -844,3 +844,342 @@ def generate_assessment_pdf(sub_data, eval_data=None, hide_marks=True):
     buffer.seek(0)
     return buffer.getvalue()
 
+
+def generate_college_naac_attainment_pdf(college_name, university_name, data):
+    """
+    Generates an official NAAC Criterion 2.6 Institutional Learning Outcomes &
+    Attainment Assessment Report (PDF) with executive summary, PO attainment matrix,
+    participating faculty breakdown (with names), and mathematical methodology.
+    """
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36
+    )
+
+    styles = getSampleStyleSheet()
+    
+    header_naac_style = ParagraphStyle(
+        'NAACHeader',
+        parent=styles['Normal'],
+        fontName=PDF_FONT_BOLD,
+        fontSize=9,
+        leading=12,
+        alignment=1,
+        textColor=colors.HexColor("#1E3A8A")
+    )
+    
+    college_title_style = ParagraphStyle(
+        'CollegeTitle',
+        parent=styles['Normal'],
+        fontName=PDF_FONT_BOLD,
+        fontSize=13,
+        leading=16,
+        alignment=1,
+        textColor=colors.HexColor("#0F172A")
+    )
+    
+    univ_sub_style = ParagraphStyle(
+        'UnivSub',
+        parent=styles['Normal'],
+        fontName=PDF_FONT_NORMAL,
+        fontSize=8.5,
+        leading=11,
+        alignment=1,
+        textColor=colors.HexColor("#475569")
+    )
+    
+    section_h2_style = ParagraphStyle(
+        'SectionH2',
+        parent=styles['Normal'],
+        fontName=PDF_FONT_BOLD,
+        fontSize=10,
+        leading=13,
+        textColor=colors.HexColor("#1E3A8A"),
+        spaceBefore=8,
+        spaceAfter=4
+    )
+    
+    cell_bold = ParagraphStyle(
+        'CellBold',
+        parent=styles['Normal'],
+        fontName=PDF_FONT_BOLD,
+        fontSize=7.5,
+        leading=9.5,
+        textColor=colors.HexColor("#1E293B")
+    )
+    
+    cell_regular = ParagraphStyle(
+        'CellRegular',
+        parent=styles['Normal'],
+        fontName=PDF_FONT_NORMAL,
+        fontSize=7.5,
+        leading=9.5,
+        textColor=colors.HexColor("#334155")
+    )
+    
+    th_style = ParagraphStyle(
+        'THStyle',
+        parent=styles['Normal'],
+        fontName=PDF_FONT_BOLD,
+        fontSize=7.5,
+        leading=9.5,
+        alignment=1,
+        textColor=colors.white
+    )
+
+    story = []
+
+    # 1. Official Header
+    acad_yr = data.get('academic_year', '2026–27')
+    header_html = "<b>NATIONAL ASSESSMENT AND ACCREDITATION COUNCIL (NAAC)</b><br/>" \
+                  "<font size='8' color='#D97706'>CRITERION 2.6 – STUDENT PERFORMANCE AND LEARNING OUTCOMES</font><br/>" \
+                  "<font size='7.5' color='#1E3A8A'>Institutional Outcome-Based Education (OBE) Attainment Assessment Record</font>"
+    story.append(safe_paragraph(header_html, header_naac_style))
+    story.append(Spacer(1, 4))
+    
+    college_header_box = [
+        [
+            safe_paragraph(f"<b>{html.escape(college_name.upper())}</b>", college_title_style)
+        ],
+        [
+            safe_paragraph(f"Affiliated to {html.escape(university_name)} | Academic Year: <b>{acad_yr}</b>", univ_sub_style)
+        ]
+    ]
+    college_tbl = Table(college_header_box, colWidths=[523])
+    college_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
+        ('BOX', (0, 0), (-1, -1), 1.5, colors.HexColor("#1E3A8A")),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    ]))
+    story.append(college_tbl)
+    story.append(Spacer(1, 6))
+
+    # 2. Executive Summary Metrics
+    summary = data.get('summary', {})
+    tot_courses = summary.get('total_courses_count', 0)
+    eval_courses = summary.get('evaluated_courses_count', 0)
+    coverage_pct = summary.get('coverage_percentage', 0.0)
+    tch_count = summary.get('participating_teachers_count', 0)
+    students_count = summary.get('total_students_evaluated', 0)
+    overall_attainment = summary.get('overall_attainment_percentage', 0.0)
+    overall_level = summary.get('overall_naac_level', 1)
+
+    level_color_map = {
+        3: "#16A34A", # Green
+        2: "#2563EB", # Blue
+        1: "#D97706", # Amber
+        0: "#DC2626"  # Red
+    }
+    lvl_color = level_color_map.get(overall_level, "#2563EB")
+
+    story.append(safe_paragraph("<b>1. कार्यकारी सारांश व साध्यता निर्देशांक (Executive Attainment Summary)</b>", section_h2_style))
+    
+    summary_data = [
+        [
+            safe_paragraph("<b>Total Courses Mapped:</b><br/>नोंदणीकृत अभ्यासक्रम", cell_bold),
+            safe_paragraph(f"<b>{tot_courses}</b>", cell_regular),
+            safe_paragraph("<b>Evaluated Courses:</b><br/>मूल्यांकित अभ्यासक्रम", cell_bold),
+            safe_paragraph(f"<b>{eval_courses}</b>", cell_regular),
+            safe_paragraph("<b>Audit Coverage:</b><br/>कव्हरेज प्रमाण", cell_bold),
+            safe_paragraph(f"<b>{coverage_pct:.1f}%</b>", cell_regular)
+        ],
+        [
+            safe_paragraph("<b>Faculty Members:</b><br/>सहभागी प्राध्यापक", cell_bold),
+            safe_paragraph(f"<b>{tch_count} Faculty</b>", cell_regular),
+            safe_paragraph("<b>Students Evaluated:</b><br/>परीक्षित विद्यार्थी", cell_bold),
+            safe_paragraph(f"<b>{students_count}</b>", cell_regular),
+            safe_paragraph("<b>Attainment Index:</b><br/>एकूण साध्यता स्तर", cell_bold),
+            safe_paragraph(f"<font color='{lvl_color}'><b>{overall_attainment:.1f}% (Level {overall_level})</b></font>", cell_bold)
+        ]
+    ]
+    summary_table = Table(summary_data, colWidths=[100, 75, 100, 75, 95, 78])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#94A3B8")),
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor("#EFF6FF")),
+        ('BACKGROUND', (2, 0), (2, -1), colors.HexColor("#EFF6FF")),
+        ('BACKGROUND', (4, 0), (4, -1), colors.HexColor("#EFF6FF")),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 6))
+
+    # 3. Programme Outcomes (PO1 to PO12) Attainment Matrix
+    story.append(safe_paragraph("<b>2. पदवी कार्यक्रम फलनिष्पत्ती साध्यता तक्ता (Programme Outcomes [PO1–PO12] Attainment Matrix)</b>", section_h2_style))
+    
+    po_list = data.get('po_attainment_list', [])
+    po_table_data = [
+        [
+            safe_paragraph("PO Code", th_style),
+            safe_paragraph("Programme Outcome (PO) Title & Purpose", th_style),
+            safe_paragraph("Courses Mapped", th_style),
+            safe_paragraph("Attainment (%)", th_style),
+            safe_paragraph("NAAC Level", th_style),
+            safe_paragraph("Outcome Status", th_style)
+        ]
+    ]
+
+    for p in po_list:
+        lvl = p.get('naac_level', 1)
+        p_color = level_color_map.get(lvl, "#2563EB")
+        status_label = f"<font color='{p_color}'><b>Level {lvl} (साध्य)</b></font>" if lvl >= 1 else "<font color='#DC2626'><b>Not Attained</b></font>"
+        po_table_data.append([
+            safe_paragraph(f"<b>{html.escape(p.get('po_code', ''))}</b>", cell_bold),
+            safe_paragraph(f"<b>{html.escape(p.get('po_title', ''))}</b><br/><font size='6' color='#64748B'>{html.escape(p.get('po_description', ''))[:95]}...</font>", cell_regular),
+            safe_paragraph(f"<center>{p.get('mapped_courses_count', 0)}</center>", cell_regular),
+            safe_paragraph(f"<center><b>{p.get('attainment_pct', 0.0):.1f}%</b></center>", cell_regular),
+            safe_paragraph(f"<center><b>Level {lvl}</b></center>", cell_bold),
+            safe_paragraph(f"<center>{status_label}</center>", cell_regular)
+        ])
+
+    po_table = Table(po_table_data, colWidths=[45, 238, 55, 65, 55, 65])
+    po_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#1E3A8A")),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#1E3A8A")),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
+    ]))
+    story.append(po_table)
+    story.append(Spacer(1, 6))
+
+    # 4. Course-wise & Faculty Breakdown (पारदर्शक सहभाग तपशील)
+    story.append(safe_paragraph("<b>3. अभ्यासक्रम व प्राध्यापकनिहाय साध्यता तपशील (Faculty & Course-wise Attainment Breakdown)</b>", section_h2_style))
+    
+    teacher_breakdown = data.get('teacher_breakdown', [])
+    t_table_data = [
+        [
+            safe_paragraph("Faculty Member (प्राध्यापक)", th_style),
+            safe_paragraph("Subject & Course", th_style),
+            safe_paragraph("Class & Sem", th_style),
+            safe_paragraph("Students (Eval / Target)", th_style),
+            safe_paragraph("Attainment (%)", th_style),
+            safe_paragraph("Level", th_style)
+        ]
+    ]
+
+    for t in teacher_breakdown[:35]: # Display up to 35 courses cleanly
+        t_lvl = t.get('naac_level', 1)
+        t_color = level_color_map.get(t_lvl, "#2563EB")
+        t_table_data.append([
+            safe_paragraph(f"<b>{html.escape(t.get('teacher_name', ''))}</b><br/><font size='6' color='#64748B'>{html.escape(t.get('designation', 'Faculty'))}</font>", cell_regular),
+            safe_paragraph(f"<b>{html.escape(t.get('course_name', ''))}</b> ({html.escape(t.get('course_code', ''))})<br/><font size='6' color='#64748B'>{html.escape(t.get('subject_name', ''))}</font>", cell_regular),
+            safe_paragraph(f"{html.escape(t.get('class_name', ''))}", cell_regular),
+            safe_paragraph(f"<center>{t.get('students_evaluated', 0)} / {t.get('students_meeting_target', 0)}</center>", cell_regular),
+            safe_paragraph(f"<center><b>{t.get('attainment_pct', 0.0):.1f}%</b></center>", cell_bold),
+            safe_paragraph(f"<center><font color='{t_color}'><b>L-{t_lvl}</b></font></center>", cell_bold)
+        ])
+
+    if len(t_table_data) == 1:
+        t_table_data.append([
+            safe_paragraph("No courses evaluated yet.", cell_regular),
+            safe_paragraph("-", cell_regular),
+            safe_paragraph("-", cell_regular),
+            safe_paragraph("-", cell_regular),
+            safe_paragraph("-", cell_regular),
+            safe_paragraph("-", cell_regular)
+        ])
+
+    t_table = Table(t_table_data, colWidths=[120, 153, 75, 85, 55, 35])
+    t_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#0F766E")), # Teal
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#0F766E")),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor("#F0FDFA")]),
+    ]))
+    story.append(t_table)
+    story.append(Spacer(1, 6))
+
+    # 5. Mathematical Methodology & NAAC Benchmarks
+    story.append(safe_paragraph("<b>4. फलनिष्पत्ती गणिती पद्धत व बेंचमार्क सूत्र (Mathematical Calculation Methodology & NAAC Scale)</b>", section_h2_style))
+    
+    math_text = (
+        "<b>1. Course Outcome (CO) Attainment Formula:</b><br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;<b>CO Attainment (%) = (Number of Students scoring &ge; 60% in Assessment / Total Evaluated Students) &times; 100</b><br/>"
+        "<b>2. NAAC 3-Point Attainment Level Scale:</b><br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 3 (High Attainment):</b> &ge; 70% of evaluated students achieved target benchmark (&ge;60% marks).<br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 2 (Medium Attainment):</b> 60% – 69% of evaluated students achieved target benchmark.<br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 1 (Low Attainment):</b> 50% – 59% of evaluated students achieved target benchmark.<br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 0 (Not Attained):</b> &lt; 50% of evaluated students achieved target benchmark.<br/>"
+        "<b>3. Institutional Program Outcome (PO) Attainment:</b><br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;Consolidated average of attainment scores across all courses mapped to the respective Program Outcome.<br/>"
+        "<b>4. Coverage & Participation Transparency:</b><br/>"
+        f"&nbsp;&nbsp;&nbsp;&nbsp;Academic Coverage = ({eval_courses} evaluated courses / {tot_courses} registered courses) &times; 100 = <b>{coverage_pct:.1f}%</b>."
+    )
+    
+    math_box = [[safe_paragraph(math_text, cell_regular)]]
+    math_tbl = Table(math_box, colWidths=[523])
+    math_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
+        ('BOX', (0, 0), (-1, -1), 0.75, colors.HexColor("#94A3B8")),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(math_tbl)
+    story.append(Spacer(1, 10))
+
+    # 6. QR Code & Verification Signatures
+    qr_lines = [
+        "NAAC CRITERION 2.6 OBE ATTAINMENT AUDIT",
+        f"College: {college_name}",
+        f"University: {university_name}",
+        f"Academic Year: {acad_yr}",
+        f"Attainment Index: {overall_attainment:.1f}% (Level {overall_level})",
+        f"Evaluated Courses: {eval_courses} / {tot_courses} ({coverage_pct:.1f}%)",
+        f"Participating Faculty: {tch_count} Members",
+        "CIEMS Verified Academic Compliance"
+    ]
+    qr_text = "\n".join(qr_lines)
+    qr_img = None
+    try:
+        qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=5, border=2)
+        qr.add_data(qr_text)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        qr_io = io.BytesIO()
+        img.save(qr_io, format="PNG")
+        qr_io.seek(0)
+        qr_img = RLImage(qr_io, width=65, height=65)
+    except Exception:
+        qr_img = None
+
+    qr_cell = []
+    if qr_img:
+        qr_cell.append(qr_img)
+    qr_cell.append(safe_paragraph("<font size='5.5' color='#1E3A8A'><b>NAAC Digital Audit</b></font>", ParagraphStyle('QRL', parent=univ_sub_style, alignment=1)))
+
+    sig_data = [
+        [
+            safe_paragraph("<br/><br/>_____________________________________<br/><b>IQAC Coordinator / NAAC Steering Head</b><br/><font size='6' color='#64748B'>अंतर्गत गुणवत्ता हमी कक्ष (IQAC) समन्वयक</font>", cell_bold),
+            qr_cell,
+            safe_paragraph("<br/><br/>_____________________________________<br/><b>Principal / Head of Institution</b><br/><font size='6' color='#64748B'>प्राचार्य / संस्थाप्रमुख स्वाक्षरी व शिक्का</font>", ParagraphStyle('PR', parent=cell_bold, alignment=2))
+        ]
+    ]
+    sig_table = Table(sig_data, colWidths=[200, 123, 200])
+    sig_table.setStyle(TableStyle([
+        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    story.append(KeepTogether(sig_table))
+
+    doc.build(story, canvasmaker=NumberedCanvas)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+

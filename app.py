@@ -8,6 +8,7 @@ import csv
 import zipfile
 import re
 import datetime
+import html
 import time
 try:
     from dotenv import load_dotenv
@@ -4397,9 +4398,24 @@ def manage_created_assessments():
         show_marks_to_students = 0 if data.get('show_marks_to_students') in [0, '0', False, 'false'] else 1
         duration_minutes = int(data.get('duration_minutes') or 0)
 
-        if is_mcq and mcq_questions:
-            calc_marks = sum(float(q.get('marks', 1)) for q in mcq_questions if isinstance(q, dict))
-            max_marks = calc_marks if calc_marks > 0 else float(data.get('max_marks') or asm['max_marks'])
+        target_co = str(data.get('target_co') or 'CO1').strip().upper()
+        if not re.match(r'^CO[1-5]$', target_co):
+            target_co = 'CO1'
+
+        descriptive_questions = data.get('descriptive_questions') or []
+        if isinstance(descriptive_questions, str):
+            try:
+                descriptive_questions = json.loads(descriptive_questions)
+            except:
+                descriptive_questions = []
+        descriptive_questions_json = json.dumps(descriptive_questions, ensure_ascii=False)
+
+        # Total Marks calculation: Support both MCQs and Descriptive Questions
+        mcq_marks = sum(float(q.get('marks', 1)) for q in mcq_questions if isinstance(q, dict)) if (is_mcq and mcq_questions) else 0.0
+        desc_marks = sum(float(dq.get('marks') or dq.get('max_marks') or 0) for dq in descriptive_questions if isinstance(dq, dict))
+        total_calc_marks = mcq_marks + desc_marks
+        if total_calc_marks > 0:
+            max_marks = total_calc_marks
         else:
             max_marks = float(data.get('max_marks') or asm['max_marks'])
 
@@ -4410,19 +4426,19 @@ def manage_created_assessments():
         INSERT INTO created_assessments
         (assessment_code, teacher_id, subject_id, assignment_mapping_id, academic_year, class_name, semester,
          course_code, course_name, assessment_type_name, assessment_session_title, assignment_topic, max_marks,
-         submission_deadline, allow_late, is_group, student_groups_json, is_mcq, mcq_questions_json, is_individual_topics, student_topics_json, study_materials_json, target_students_json, meeting_url, meeting_time, show_marks_to_students, duration_minutes, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+         submission_deadline, allow_late, is_group, student_groups_json, is_mcq, mcq_questions_json, target_co, descriptive_questions_json, is_individual_topics, student_topics_json, study_materials_json, target_students_json, meeting_url, meeting_time, show_marks_to_students, duration_minutes, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
         """, (
             asm_code, teacher['id'], subject_id, assignment_mapping_id, sub['academic_year'], sub['class_name'],
             sub['semester'], sub['course_code'], sub['course_name'], asm['assessment_type_name'],
             session_title, topic, max_marks, deadline, allow_late, is_group, student_groups_json, is_mcq, mcq_questions_json,
-            is_individual_topics, student_topics_json, study_materials_json, target_students_json, meeting_url, meeting_time, show_marks_to_students, duration_minutes
+            target_co, descriptive_questions_json, is_individual_topics, student_topics_json, study_materials_json, target_students_json, meeting_url, meeting_time, show_marks_to_students, duration_minutes
         ))
         conn.commit()
         new_id = cursor.lastrowid
         conn.close()
         database.backup_database_to_cloud_async()
-        return jsonify({'success': True, 'message': 'Assessment session created successfully!', 'assessment_code': asm_code, 'id': new_id, 'assessment_id': new_id, 'show_marks_to_students': show_marks_to_students, 'duration_minutes': duration_minutes}), 201
+        return jsonify({'success': True, 'message': 'Assessment session created successfully!', 'assessment_code': asm_code, 'id': new_id, 'assessment_id': new_id, 'target_co': target_co, 'show_marks_to_students': show_marks_to_students, 'duration_minutes': duration_minutes}), 201
 
     # GET
     cursor.execute("""
@@ -5201,7 +5217,12 @@ def create_student_submission():
         conn.close()
         return jsonify({'error': 'Assessment session not found.'}), 404
 
-    is_mcq = 1 if assessment['is_mcq'] else 0
+    teacher = dict(teacher)
+    assessment = dict(assessment)
+    if student:
+        student = dict(student)
+
+    is_mcq = 1 if assessment.get('is_mcq') else 0
 
     if not topic:
         topic = assessment['assignment_topic'] or assessment['assessment_session_title']
@@ -5337,7 +5358,55 @@ def create_student_submission():
         is_auto_graded = 1
         auto_remarks = f"Auto-Graded MCQ Test: {correct_count}/{total_q_count} correct answers ({calculated_marks}/{total_mcq_max_marks} marks)."
 
-    status = 'Assessed' if is_auto_graded else 'Submitted'
+    descriptive_answers = data.get('descriptive_answers') or {}
+    if isinstance(descriptive_answers, str):
+        try:
+            descriptive_answers = json.loads(descriptive_answers)
+        except:
+            descriptive_answers = {}
+    descriptive_answers_json = json.dumps(descriptive_answers, ensure_ascii=False)
+
+    # Check if this assessment includes descriptive (short/broad) questions
+    has_descriptive_questions = False
+    if assessment.get('descriptive_questions_json'):
+        try:
+            d_qs = json.loads(assessment['descriptive_questions_json'])
+            if isinstance(d_qs, list) and len(d_qs) > 0:
+                has_descriptive_questions = True
+        except:
+            pass
+
+    # If descriptive questions exist, format them into typed_content_html for permanent audit trail
+    if has_descriptive_questions and descriptive_answers:
+        desc_html = ["<div style='margin-top: 15px;'><h4>लघुत्तरी व दीर्घोत्तरी प्रश्न - विद्यार्थी उत्तरे (Descriptive Section)</h4>"]
+        try:
+            d_qs = json.loads(assessment['descriptive_questions_json'])
+            for q_idx, dq in enumerate(d_qs, 1):
+                qid = str(dq.get('id') or dq.get('question_number') or q_idx)
+                q_text = dq.get('question') or dq.get('question_text') or ''
+                q_marks = dq.get('marks') or dq.get('max_marks') or 5
+                q_type = dq.get('type', 'short')
+                type_label = 'लघुत्तरी प्रश्न' if q_type == 'short' else 'दीर्घोत्तरी प्रश्न'
+                ans_text = descriptive_answers.get(qid) or descriptive_answers.get(f'dq_{q_idx}') or descriptive_answers.get(str(q_idx)) or ''
+                desc_html.append(f"""
+                <div style='border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 12px; background: #fff;'>
+                  <p style='font-size: 13px; font-weight: bold; color: #1e293b;'>प्रश्न {q_idx}. {html.escape(q_text)} <span style='font-size: 11px; color: #64748b;'>({type_label} - {q_marks} गुण)</span></p>
+                  <div style='margin-top: 6px; padding: 8px; background: #f8fafc; border-left: 3px solid #3b82f6; font-size: 12px; color: #334155; white-space: pre-wrap;'>{html.escape(ans_text) if ans_text else '<i>(उत्तर दिलेले नाही / No answer typed)</i>'}</div>
+                </div>
+                """)
+        except Exception:
+            pass
+        desc_html.append("</div>")
+        typed_content_html = (typed_content_html or '') + "".join(desc_html)
+
+    # Hybrid assessment: if descriptive questions exist, it cannot be fully auto-assessed.
+    # Status remains 'Submitted' so faculty can review descriptive answers!
+    if has_descriptive_questions:
+        status = 'Submitted'
+        is_auto_graded = 0
+    else:
+        status = 'Assessed' if is_auto_graded else 'Submitted'
+
     mcq_answers_json = json.dumps(mcq_answers)
     dynamic_data_json = json.dumps(dynamic_data)
 
@@ -5405,9 +5474,9 @@ def create_student_submission():
         if existing_sub:
             cursor.execute("""
                 UPDATE submissions SET
-                  group_code = ?, topic = ?, typed_content_html = ?, mcq_answers_json = ?, drive_url = ?, youtube_url = ?, pdf_url = ?, status = ?, is_auto_graded = ?, submitted_at = ?
+                  group_code = ?, topic = ?, typed_content_html = ?, mcq_answers_json = ?, descriptive_answers_json = ?, drive_url = ?, youtube_url = ?, pdf_url = ?, status = ?, is_auto_graded = ?, submitted_at = ?
                 WHERE id = ?
-            """, (group_code, topic, typed_content_html, mcq_answers_json, drive_url, youtube_url, pdf_url, status, is_auto_graded, submitted_at_str, existing_sub['id']))
+            """, (group_code, topic, typed_content_html, mcq_answers_json, descriptive_answers_json, drive_url, youtube_url, pdf_url, status, is_auto_graded, submitted_at_str, existing_sub['id']))
             if is_auto_graded:
                 cursor.execute("""
                 INSERT OR REPLACE INTO evaluations
@@ -5426,9 +5495,9 @@ def create_student_submission():
         INSERT INTO submissions
         (submission_id, teacher_id, roster_id, created_assessment_id, student_name, roll_number, prn,
          class_name, division, semester, course_code, course_name, teacher_name, college_name, university_name,
-         assessment_type_name, topic, group_code, dynamic_data_json, typed_content_html, mcq_answers_json,
+         assessment_type_name, topic, group_code, dynamic_data_json, typed_content_html, mcq_answers_json, descriptive_answers_json,
          drive_url, youtube_url, pdf_url, is_auto_graded, status, is_late, submitted_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             m_sub_code, teacher_id, m['id'], created_assessment_id,
             m['student_name'], m['roll_number'], m['prn'],
@@ -5436,7 +5505,7 @@ def create_student_submission():
             assessment['course_code'], assessment['course_name'], teacher['name'],
             teacher['college_name'], teacher['university_name'],
             assessment['assessment_type_name'], topic, group_code,
-            dynamic_data_json, typed_content_html, mcq_answers_json,
+            dynamic_data_json, typed_content_html, mcq_answers_json, descriptive_answers_json,
             drive_url, youtube_url, pdf_url, is_auto_graded, status, is_late, submitted_at_str
         ))
         new_row_id = cursor.lastrowid
@@ -5635,6 +5704,16 @@ def evaluate_submission(sub_id=None):
         group_rows = cursor.fetchall()
         target_sub_ids = [r['id'] for r in group_rows]
 
+    descriptive_marks = data.get('descriptive_marks')
+    descriptive_marks_json = None
+    if descriptive_marks:
+        if isinstance(descriptive_marks, str):
+            try:
+                descriptive_marks = json.loads(descriptive_marks)
+            except:
+                descriptive_marks = {}
+        descriptive_marks_json = json.dumps(descriptive_marks, ensure_ascii=False)
+
     for s_id in target_sub_ids:
         cursor.execute("""
         INSERT INTO evaluations
@@ -5648,7 +5727,10 @@ def evaluate_submission(sub_id=None):
           evaluated_at=excluded.evaluated_at
         """, (s_id, marks_val, max_val, remarks, teacher['id'], now_str))
 
-        cursor.execute("UPDATE submissions SET status = 'Assessed', updated_at = ? WHERE id = ? AND teacher_id = ?", (now_str, s_id, teacher['id']))
+        if descriptive_marks_json:
+            cursor.execute("UPDATE submissions SET status = 'Assessed', descriptive_marks_json = ?, updated_at = ? WHERE id = ? AND teacher_id = ?", (descriptive_marks_json, now_str, s_id, teacher['id']))
+        else:
+            cursor.execute("UPDATE submissions SET status = 'Assessed', updated_at = ? WHERE id = ? AND teacher_id = ?", (now_str, s_id, teacher['id']))
 
         cursor.execute("""
         INSERT INTO audit_logs (submission_id, action, performed_by, role, details, timestamp)
@@ -7224,6 +7306,545 @@ def teacher_get_admin_announcements():
     rows = [dict(r) for r in cursor.fetchall()]
     conn.close()
     return jsonify({'success': True, 'announcements': rows})
+
+# ==============================================================================
+# OUTCOME-BASED EDUCATION (OBE) & NAAC ATTAINMENT SYSTEM
+# ==============================================================================
+
+@app.route('/api/obe/program-outcomes', methods=['GET', 'POST'])
+def api_obe_program_outcomes():
+    if request.method == 'GET':
+        pos = database.get_all_program_outcomes()
+        psos = database.get_all_program_specific_outcomes()
+        return jsonify({'success': True, 'program_outcomes': pos, 'program_specific_outcomes': psos})
+    
+    # POST: Admin or Teacher add / update PO
+    admin = get_current_admin()
+    teacher = get_current_teacher() if not admin else None
+    if not admin and not teacher:
+        return jsonify({'error': 'Unauthorized access.'}), 401
+
+    data = request.json or {}
+    po_code = str(data.get('po_code') or '').strip().upper()
+    po_title = str(data.get('po_title') or '').strip()
+    po_description = str(data.get('po_description') or '').strip()
+
+    if not po_code or not po_title:
+        return jsonify({'error': 'PO Code and Title are required.'}), 400
+
+    database.update_or_create_program_outcome(po_code, po_title, po_description)
+    return jsonify({'success': True, 'message': f"Program Outcome '{po_code}' updated successfully."})
+
+@app.route('/api/obe/course-outcomes/<int:subject_id>', methods=['GET'])
+def api_obe_get_course_outcomes(subject_id):
+    admin = get_current_admin()
+    teacher = get_current_teacher() if not admin else None
+    if not admin and not teacher:
+        if subject_id == 0:
+            cos = database.get_default_course_outcomes_template()
+            pos = database.get_all_program_outcomes()
+            psos = database.get_all_program_specific_outcomes()
+            return jsonify({
+                'success': True,
+                'course_outcomes': cos,
+                'program_outcomes': pos,
+                'program_specific_outcomes': psos
+            })
+        return jsonify({'error': 'Unauthorized access.'}), 401
+
+    t_id = teacher['id'] if teacher else None
+    if subject_id == 0:
+        cos = database.get_default_course_outcomes_template()
+    else:
+        cos = database.get_course_outcomes_for_subject(subject_id, t_id)
+        if not cos:
+            cos = database.get_default_course_outcomes_template()
+    pos = database.get_all_program_outcomes()
+    psos = database.get_all_program_specific_outcomes(subject_id if subject_id != 0 else None, t_id)
+    return jsonify({
+        'success': True, 
+        'course_outcomes': cos, 
+        'program_outcomes': pos,
+        'program_specific_outcomes': psos
+    })
+
+@app.route('/api/obe/course-outcomes', methods=['POST'])
+@teacher_required
+def api_obe_save_course_outcomes():
+    teacher = get_current_teacher()
+    data = request.json or {}
+    subject_id = data.get('subject_id')
+    outcomes = data.get('outcomes') or data.get('course_outcomes') or []
+
+    if not subject_id:
+        return jsonify({'error': 'Subject ID is required.'}), 400
+
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM teacher_subjects WHERE id = ? AND teacher_id = ?", (subject_id, teacher['id']))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({'error': 'Subject not found or does not belong to you.'}), 404
+    conn.close()
+
+    database.save_course_outcomes_for_subject(subject_id, teacher['id'], outcomes)
+    return jsonify({'success': True, 'message': 'Course Outcomes (COs) and PO mappings saved successfully!'})
+
+def compute_teacher_attainment_data(subject_id, teacher_id):
+    """Core calculation engine for Teacher Subject Course Outcomes, PO Attainment, PSO Attainment & Articulation Matrix."""
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM teacher_subjects WHERE id = ? AND teacher_id = ?", (subject_id, teacher_id))
+    subject = cursor.fetchone()
+    if not subject:
+        conn.close()
+        return None
+
+    cos = database.get_course_outcomes_for_subject(subject_id, teacher_id)
+    pos = database.get_all_program_outcomes()
+    psos = database.get_all_program_specific_outcomes(subject_id, teacher_id)
+
+    # Find all assessments for this subject
+    cursor.execute("""
+    SELECT ca.id, ca.target_co, ca.max_marks, ca.assessment_session_title, ca.assessment_type_name
+    FROM created_assessments ca
+    WHERE ca.subject_id = ? AND ca.teacher_id = ?
+    """, (subject_id, teacher_id))
+    assessments = [dict(r) for r in cursor.fetchall()]
+
+    co_results = []
+    for co in cos:
+        co_code = co['co_code']
+        co_stmt = co.get('co_statement') or co.get('co_description') or ''
+        benchmark_pct = float(co.get('target_benchmark') or co.get('target_benchmark_percentage') or 60.0) / 100.0
+
+        matching_asms = [a for a in assessments if (a.get('target_co') or 'CO1') == co_code]
+        if not matching_asms and co_code == 'CO1' and assessments:
+            matching_asms = [a for a in assessments if not a.get('target_co') or a.get('target_co') == 'CO1']
+
+        m_asm_ids = [a['id'] for a in matching_asms]
+        if not m_asm_ids:
+            co_results.append({
+                'co_code': co_code,
+                'co_statement': co_stmt,
+                'co_description': co_stmt,
+                'target_benchmark': co.get('target_benchmark', 60.0),
+                'po_mapping': co.get('po_mapping', {}),
+                'assessments_count': 0,
+                'students_evaluated': 0,
+                'students_meeting_target': 0,
+                'attainment_pct': 0.0,
+                'attainment_percentage': 0.0,
+                'naac_level': 0,
+                'is_attained': False,
+                'status': 'Pending Assessment'
+            })
+            continue
+
+        placeholders = ','.join(['?'] * len(m_asm_ids))
+        cursor.execute(f"""
+        SELECT e.marks_obtained, e.maximum_marks
+        FROM evaluations e
+        JOIN submissions s ON e.submission_id = s.id
+        WHERE s.created_assessment_id IN ({placeholders})
+        """, m_asm_ids)
+        eval_rows = cursor.fetchall()
+
+        total_eval = len(eval_rows)
+        meeting_target = 0
+        for ev in eval_rows:
+            max_m = ev['maximum_marks'] or 20.0
+            obt = ev['marks_obtained'] or 0.0
+            if max_m > 0 and (obt / max_m) >= benchmark_pct:
+                meeting_target += 1
+
+        attainment_pct = (meeting_target / total_eval * 100.0) if total_eval > 0 else 0.0
+        if attainment_pct >= 70.0:
+            lvl = 3
+            status = 'Level 3 (High Attainment - उच्च साध्यता)'
+        elif attainment_pct >= 60.0:
+            lvl = 2
+            status = 'Level 2 (Medium Attainment - मध्यम साध्यता)'
+        elif attainment_pct >= 50.0:
+            lvl = 1
+            status = 'Level 1 (Low Attainment - समाधानकारक)'
+        else:
+            lvl = 0
+            status = 'Level 0 (Not Attained - साध्य नाही)'
+
+        co_results.append({
+            'co_code': co_code,
+            'co_statement': co_stmt,
+            'co_description': co_stmt,
+            'target_benchmark': co.get('target_benchmark', 60.0),
+            'po_mapping': co.get('po_mapping', {}),
+            'assessments_count': len(matching_asms),
+            'students_evaluated': total_eval,
+            'students_meeting_target': meeting_target,
+            'attainment_pct': round(attainment_pct, 1),
+            'attainment_percentage': round(attainment_pct, 1),
+            'naac_level': lvl,
+            'is_attained': (attainment_pct >= 60.0),
+            'status': status
+        })
+
+    po_results = []
+    for po in pos:
+        po_code = po['po_code']
+        weighted_sum = 0.0
+        weight_sum = 0.0
+        mapped_cos = []
+
+        for cr in co_results:
+            mapping = cr.get('po_mapping', {})
+            w = float(mapping.get(po_code, 0) or 0)
+            if w > 0:
+                weighted_sum += cr['attainment_pct'] * w
+                weight_sum += w
+                mapped_cos.append(cr['co_code'])
+
+        if weight_sum > 0:
+            po_pct = round(weighted_sum / weight_sum, 1)
+            lvl = 3 if po_pct >= 70.0 else (2 if po_pct >= 60.0 else (1 if po_pct >= 50.0 else 0))
+        else:
+            po_pct = 0.0
+            lvl = 0
+
+        po_results.append({
+            'po_code': po_code,
+            'po_title': po['po_title'],
+            'po_title_en': po.get('po_title_en') or po['po_title'],
+            'po_title_mr': po.get('po_title_mr') or po['po_title'],
+            'po_description': po.get('po_description', ''),
+            'po_description_en': po.get('po_description_en') or po.get('po_description', ''),
+            'po_description_mr': po.get('po_description_mr') or po.get('po_description', ''),
+            'mapped_cos': mapped_cos,
+            'mapped_co_count': len(mapped_cos),
+            'attainment_pct': po_pct,
+            'attainment_percentage': po_pct,
+            'naac_level': lvl
+        })
+
+    pso_results = []
+    for pso in psos:
+        pso_code = pso['pso_code']
+        weighted_sum = 0.0
+        weight_sum = 0.0
+        mapped_cos = []
+
+        for cr in co_results:
+            mapping = cr.get('po_mapping', {})
+            w = float(mapping.get(pso_code, 0) or 0)
+            if w > 0:
+                weighted_sum += cr['attainment_pct'] * w
+                weight_sum += w
+                mapped_cos.append(cr['co_code'])
+
+        if weight_sum > 0:
+            pso_pct = round(weighted_sum / weight_sum, 1)
+            lvl = 3 if pso_pct >= 70.0 else (2 if pso_pct >= 60.0 else (1 if pso_pct >= 50.0 else 0))
+        else:
+            pso_pct = 0.0
+            lvl = 0
+
+        pso_results.append({
+            'pso_code': pso_code,
+            'pso_title': pso.get('pso_title', ''),
+            'pso_title_en': pso.get('pso_title_en') or pso.get('pso_title', ''),
+            'pso_title_mr': pso.get('pso_title_mr') or pso.get('pso_title', ''),
+            'pso_description': pso.get('pso_description', ''),
+            'pso_description_en': pso.get('pso_description_en') or pso.get('pso_description', ''),
+            'pso_description_mr': pso.get('pso_description_mr') or pso.get('pso_description', ''),
+            'mapped_cos': mapped_cos,
+            'mapped_co_count': len(mapped_cos),
+            'attainment_pct': pso_pct,
+            'attainment_percentage': pso_pct,
+            'naac_level': lvl
+        })
+
+    # Build Structured CO-PO & CO-PSO Articulation Matrix
+    matrix_columns = [
+        {'code': po['po_code'], 'type': 'PO', 'title_en': po.get('po_title_en', po['po_title']), 'title_mr': po.get('po_title_mr', po['po_title'])}
+        for po in pos
+    ] + [
+        {'code': pso['pso_code'], 'type': 'PSO', 'title_en': pso.get('pso_title_en', pso.get('pso_title', '')), 'title_mr': pso.get('pso_title_mr', pso.get('pso_title', ''))}
+        for pso in psos
+    ]
+
+    matrix_rows = []
+    for cr in co_results:
+        mapping = cr.get('po_mapping', {})
+        cell_weights = {}
+        for col in matrix_columns:
+            c_code = col['code']
+            cell_weights[c_code] = int(mapping.get(c_code, 0) or 0)
+        matrix_rows.append({
+            'co_code': cr['co_code'],
+            'co_statement': cr['co_statement'],
+            'target_benchmark': cr['target_benchmark'],
+            'weights': cell_weights
+        })
+
+    matrix_averages = {}
+    for col in matrix_columns:
+        c_code = col['code']
+        vals = [r['weights'].get(c_code, 0) for r in matrix_rows if r['weights'].get(c_code, 0) > 0]
+        matrix_averages[c_code] = round(sum(vals) / len(vals), 1) if vals else '-'
+
+    articulation_matrix = {
+        'columns': matrix_columns,
+        'rows': matrix_rows,
+        'averages': matrix_averages
+    }
+
+    overall_pct = round(sum(cr['attainment_pct'] for cr in co_results) / len(co_results), 1) if co_results else 0.0
+    overall_level = 3 if overall_pct >= 70.0 else (2 if overall_pct >= 60.0 else (1 if overall_pct >= 50.0 else 0))
+
+    conn.close()
+    return {
+        'subject': dict(subject),
+        'course_outcomes': co_results,
+        'co_attainment': co_results,
+        'program_outcomes': po_results,
+        'po_attainment': po_results,
+        'program_specific_outcomes': pso_results,
+        'pso_attainment': pso_results,
+        'articulation_matrix': articulation_matrix,
+        'overall_attainment_percentage': overall_pct,
+        'overall_naac_level': overall_level,
+        'assessments_count': len(assessments)
+    }
+
+@app.route('/api/obe/teacher-attainment/<int:subject_id>', methods=['GET'])
+@teacher_required
+def api_obe_teacher_attainment(subject_id):
+    teacher = get_current_teacher()
+    result = compute_teacher_attainment_data(subject_id, teacher['id'])
+    if not result:
+        return jsonify({'error': 'Subject not found.'}), 404
+    return jsonify({
+        'success': True,
+        **result
+    })
+
+@app.route('/api/admin/colleges-list', methods=['GET'])
+@admin_required
+def api_admin_colleges_list():
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT DISTINCT college_name, university_name, COUNT(id) as approved_teachers_count
+    FROM teachers
+    WHERE status = 'approved' AND college_name IS NOT NULL AND TRIM(college_name) != ''
+    GROUP BY college_name, university_name
+    ORDER BY college_name ASC
+    """)
+    colleges = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return jsonify({'success': True, 'colleges': colleges})
+
+def compute_college_naac_attainment_data(college_name, academic_year=None):
+    """Core calculation engine for College NAAC Criterion 2.6 Attainment."""
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+
+    # Find all approved teachers for this college
+    cursor.execute("""
+    SELECT id, teacher_code, name, designation, faculty_stream, subject_name, college_name, university_name, academic_year
+    FROM teachers
+    WHERE status = 'approved' AND LOWER(TRIM(college_name)) = LOWER(TRIM(?))
+    ORDER BY name ASC
+    """, (college_name,))
+    teachers = [dict(r) for r in cursor.fetchall()]
+    if not teachers:
+        conn.close()
+        return None
+
+    univ_name = teachers[0]['university_name']
+    teacher_ids = [t['id'] for t in teachers]
+    placeholders = ','.join(['?'] * len(teacher_ids))
+
+    # Fetch all subjects taught by these teachers
+    cursor.execute(f"""
+    SELECT ts.*, t.name as teacher_name, t.designation as teacher_designation
+    FROM teacher_subjects ts
+    JOIN teachers t ON ts.teacher_id = t.id
+    WHERE ts.teacher_id IN ({placeholders})
+    ORDER BY t.name ASC, ts.course_name ASC
+    """, teacher_ids)
+    all_subjects = [dict(r) for r in cursor.fetchall()]
+
+    pos = database.get_all_program_outcomes()
+
+    teacher_breakdown = []
+    evaluated_courses_count = 0
+    total_students_evaluated_set = set()
+    total_students_meeting_target = 0
+    overall_attainment_sum = 0.0
+
+    po_course_map = {po['po_code']: [] for po in pos}
+
+    for sub in all_subjects:
+        sub_id = sub['id']
+        t_id = sub['teacher_id']
+
+        # Get evaluations for this subject
+        cursor.execute("""
+        SELECT e.marks_obtained, e.maximum_marks, s.roster_id, s.prn, ca.target_co
+        FROM evaluations e
+        JOIN submissions s ON e.submission_id = s.id
+        JOIN created_assessments ca ON s.created_assessment_id = ca.id
+        WHERE ca.subject_id = ? AND ca.teacher_id = ?
+        """, (sub_id, t_id))
+        evals = cursor.fetchall()
+
+        cos = database.get_course_outcomes_for_subject(sub_id, t_id)
+        target_benchmark = 60.0
+
+        if evals:
+            evaluated_courses_count += 1
+            evaluated_count = len(evals)
+            meeting_target = sum(1 for ev in evals if (ev['maximum_marks'] or 20.0) > 0 and ((ev['marks_obtained'] or 0.0) / (ev['maximum_marks'] or 20.0)) >= (target_benchmark / 100.0))
+            for ev in evals:
+                total_students_evaluated_set.add(f"{sub_id}_{ev['roster_id'] or ev['prn']}")
+            total_students_meeting_target += meeting_target
+
+            attainment_pct = round((meeting_target / evaluated_count * 100.0), 1) if evaluated_count > 0 else 0.0
+            overall_attainment_sum += attainment_pct
+
+            lvl = 3 if attainment_pct >= 70.0 else (2 if attainment_pct >= 60.0 else (1 if attainment_pct >= 50.0 else 0))
+
+            teacher_breakdown.append({
+                'teacher_name': sub['teacher_name'],
+                'designation': sub['teacher_designation'],
+                'subject_name': sub['subject_name'],
+                'course_code': sub['course_code'],
+                'course_name': sub['course_name'],
+                'class_name': sub['class_name'],
+                'semester': sub['semester'],
+                'students_evaluated': evaluated_count,
+                'students_meeting_target': meeting_target,
+                'attainment_pct': attainment_pct,
+                'naac_level': lvl
+            })
+
+            # Map course to POs
+            for co in cos:
+                mapping = co.get('po_mapping', {})
+                for p_code, w in mapping.items():
+                    if float(w or 0) > 0 and p_code in po_course_map:
+                        po_course_map[p_code].append(attainment_pct)
+        else:
+            # Course without evaluations yet
+            teacher_breakdown.append({
+                'teacher_name': sub['teacher_name'],
+                'designation': sub['teacher_designation'],
+                'subject_name': sub['subject_name'],
+                'course_code': sub['course_code'],
+                'course_name': sub['course_name'],
+                'class_name': sub['class_name'],
+                'semester': sub['semester'],
+                'students_evaluated': 0,
+                'students_meeting_target': 0,
+                'attainment_pct': 0.0,
+                'naac_level': 0
+            })
+
+    total_courses_count = len(all_subjects)
+    coverage_pct = round((evaluated_courses_count / total_courses_count * 100.0), 1) if total_courses_count > 0 else 0.0
+    overall_attainment_pct = round((overall_attainment_sum / evaluated_courses_count), 1) if evaluated_courses_count > 0 else 0.0
+    overall_lvl = 3 if overall_attainment_pct >= 70.0 else (2 if overall_attainment_pct >= 60.0 else (1 if overall_attainment_pct >= 50.0 else 0))
+
+    # Consolidated PO Attainment List
+    po_attainment_list = []
+    for po in pos:
+        p_code = po['po_code']
+        scores = po_course_map.get(p_code, [])
+        if scores:
+            p_pct = round(sum(scores) / len(scores), 1)
+            p_lvl = 3 if p_pct >= 70.0 else (2 if p_pct >= 60.0 else (1 if p_pct >= 50.0 else 0))
+        elif evaluated_courses_count > 0:
+            p_pct = overall_attainment_pct
+            p_lvl = overall_lvl
+        else:
+            p_pct = 0.0
+            p_lvl = 0
+
+        po_attainment_list.append({
+            'po_code': p_code,
+            'po_title': po['po_title'],
+            'po_title_en': po.get('po_title_en') or po['po_title'],
+            'po_title_mr': po.get('po_title_mr') or po['po_title'],
+            'po_description': po.get('po_description', ''),
+            'po_description_en': po.get('po_description_en') or po.get('po_description', ''),
+            'po_description_mr': po.get('po_description_mr') or po.get('po_description', ''),
+            'mapped_courses_count': len(scores),
+            'attainment_pct': p_pct,
+            'naac_level': p_lvl
+        })
+
+    conn.close()
+
+    acad_yr = academic_year or (teachers[0].get('academic_year') or '2026–27')
+    return {
+        'college_name': college_name,
+        'university_name': univ_name,
+        'academic_year': acad_yr,
+        'summary': {
+            'total_courses_count': total_courses_count,
+            'evaluated_courses_count': evaluated_courses_count,
+            'coverage_percentage': coverage_pct,
+            'participating_teachers_count': len(teachers),
+            'total_students_evaluated': len(total_students_evaluated_set),
+            'overall_attainment_percentage': overall_attainment_pct,
+            'overall_naac_level': overall_lvl
+        },
+        'po_attainment_list': po_attainment_list,
+        'teacher_breakdown': teacher_breakdown
+    }
+
+@app.route('/api/admin/college-attainment', methods=['GET'])
+@admin_required
+def api_admin_college_attainment():
+    college_name = str(request.args.get('college') or request.args.get('college_name') or '').strip()
+    academic_year = str(request.args.get('academic_year') or '').strip()
+    if not college_name:
+        return jsonify({'error': 'College name is required.'}), 400
+
+    report_data = compute_college_naac_attainment_data(college_name, academic_year)
+    if not report_data:
+        return jsonify({'error': f"महाविद्यालय '{college_name}' साठी कोणताही मंजूर प्राध्यापक आढळला नाही."}), 404
+
+    return jsonify({'success': True, 'report_data': report_data})
+
+@app.route('/api/admin/college-attainment-pdf', methods=['GET'])
+@admin_required
+def api_admin_college_attainment_pdf():
+    college_name = str(request.args.get('college') or request.args.get('college_name') or '').strip()
+    academic_year = str(request.args.get('academic_year') or '').strip()
+    if not college_name:
+        return jsonify({'error': 'College name is required.'}), 400
+
+    report_data = compute_college_naac_attainment_data(college_name, academic_year)
+    if not report_data:
+        return jsonify({'error': f"महाविद्यालय '{college_name}' साठी डेटा उपलब्ध नाही."}), 404
+
+    pdf_bytes = pdf_generator.generate_college_naac_attainment_pdf(
+        report_data['college_name'],
+        report_data['university_name'],
+        report_data
+    )
+
+    clean_name = re.sub(r'[^A-Za-z0-9_]', '_', college_name)[:30]
+    filename = f"NAAC_OBE_Attainment_{clean_name}_{report_data['academic_year']}.pdf"
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=filename
+    )
 
 @app.route('/api/student/assessments', methods=['GET'])
 def student_assessments_list():

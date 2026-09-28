@@ -12205,6 +12205,800 @@ window.jumpToManualChapter = jumpToManualChapter;
 window.filterUserManualText = filterUserManualText;
 window.printUserManual = printUserManual;
 
+// =========================================================================
+// TEACHER DESCRIPTIVE QUESTIONS BUILDER (विभाग ब: लघुत्तरी व दीर्घोत्तरी प्रश्न)
+// =========================================================================
+function toggleTeacherDescriptiveBuilder() {
+  const isChecked = document.getElementById('casm-is-descriptive')?.checked || false;
+  const builder = document.getElementById('teacher-desc-builder');
+  const badge = document.getElementById('desc-stats-badge');
+
+  if (isChecked) {
+    if (builder) builder.classList.remove('hidden');
+    if (badge) badge.classList.remove('hidden');
+    const container = document.getElementById('teacher-desc-questions-list');
+    if (container && container.querySelectorAll('.casm-desc-q-card').length === 0) {
+      addTeacherDescriptiveQuestion();
+    }
+  } else {
+    if (builder) builder.classList.add('hidden');
+    if (badge) badge.classList.add('hidden');
+  }
+  updateTeacherDescriptiveStats();
+}
+
+function addTeacherDescriptiveQuestion(qText = '', qMarks = 5, qType = 'short') {
+  const container = document.getElementById('teacher-desc-questions-list');
+  if (!container) return;
+  const qNum = container.querySelectorAll('.casm-desc-q-card').length + 1;
+  const card = document.createElement('div');
+  card.className = 'casm-desc-q-card p-4 rounded-xl bg-teal-50/60 border border-teal-200 space-y-2';
+  card.innerHTML = `
+    <div class="flex items-center justify-between gap-2">
+      <div class="flex items-center space-x-2 flex-1">
+        <span class="w-6 h-6 rounded-lg bg-teal-800 text-white font-bold flex items-center justify-center text-xs shrink-0 casm-desc-q-num">Q${qNum}</span>
+        <select class="casm-desc-q-type rounded-lg border border-teal-300 p-1 text-xs font-bold text-teal-900 bg-white">
+          <option value="short" ${qType === 'short' ? 'selected' : ''}>लघुत्तरी प्रश्न (Short)</option>
+          <option value="broad" ${qType === 'broad' ? 'selected' : ''}>दीर्घोत्तरी प्रश्न (Broad)</option>
+        </select>
+        <input type="text" value="${escapeHtml(qText)}" class="casm-desc-q-text w-full rounded-xl border border-teal-300 p-2 text-xs font-semibold text-slate-900 bg-white" placeholder="प्रश्न येथे टाईप करा (उदा. जल प्रदूषण नियंत्रणाचे उपाय स्पष्ट करा.)">
+      </div>
+      <div class="flex items-center space-x-2 shrink-0">
+        <span class="text-[11px] font-bold text-slate-500">Marks:</span>
+        <input type="number" class="casm-desc-q-marks w-12 text-center rounded-lg border border-teal-300 p-1 text-xs font-bold text-teal-900 bg-teal-50" value="${qMarks}" min="1" oninput="updateTeacherDescriptiveStats()">
+        <button type="button" onclick="removeTeacherDescriptiveQuestion(this)" class="p-1.5 text-red-500 hover:text-red-700 rounded-lg hover:bg-red-50 transition" title="Delete Question">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </div>
+    </div>
+  `;
+  container.appendChild(card);
+  updateTeacherDescriptiveStats();
+}
+
+function removeTeacherDescriptiveQuestion(btn) {
+  const card = btn.closest('.casm-desc-q-card');
+  if (card) card.remove();
+  const container = document.getElementById('teacher-desc-questions-list');
+  if (container) {
+    container.querySelectorAll('.casm-desc-q-card').forEach((c, idx) => {
+      const numSpan = c.querySelector('.casm-desc-q-num');
+      if (numSpan) numSpan.innerText = `Q${idx + 1}`;
+    });
+  }
+  updateTeacherDescriptiveStats();
+}
+
+function updateTeacherDescriptiveStats() {
+  const container = document.getElementById('teacher-desc-questions-list');
+  if (!container) return;
+  const cards = container.querySelectorAll('.casm-desc-q-card');
+  let totalMarks = 0;
+  cards.forEach(c => {
+    const m = parseFloat(c.querySelector('.casm-desc-q-marks')?.value) || 0;
+    totalMarks += m;
+  });
+  const qBadge = document.getElementById('desc-total-q-count');
+  const mBadge = document.getElementById('desc-total-marks-count');
+  if (qBadge) qBadge.innerText = cards.length;
+  if (mBadge) mBadge.innerText = totalMarks;
+}
+
+// =========================================================================
+// TEACHER NAAC OBE ATTAINMENT HUB (CO & PO MAPPING & EVALUATION)
+// =========================================================================
+// =========================================================================
+// TEACHER NAAC OBE ATTAINMENT HUB (CO & PO/PSO MAPPING & EVALUATION)
+// =========================================================================
+let currentObeProgramOutcomes = [];
+let currentObeProgramSpecificOutcomes = [];
+let currentObeSubjectCos = [];
+let currentObeAttainmentData = null;
+
+function getObeSubjectSelect() {
+  return document.getElementById('obe-subject-selector') || document.getElementById('obe-subject-select');
+}
+
+async function loadObeSubjects() {
+  const select = getObeSubjectSelect();
+  if (!select) return;
+
+  try {
+    const res = await fetch('/api/teacher/subjects');
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || (currentLanguage === 'mr' ? 'विषय लोड करण्यात अयशस्वी' : 'Failed to load subjects'), 'error');
+      return;
+    }
+
+    const subjects = data.subjects || [];
+    select.innerHTML = '';
+    if (subjects.length === 0) {
+      select.innerHTML = currentLanguage === 'mr' 
+        ? '<option value="">नोंदणीकृत विषय सापडले नाहीत</option>' 
+        : '<option value="">No registered subjects found</option>';
+      return;
+    }
+
+    subjects.forEach(sub => {
+      const opt = document.createElement('option');
+      opt.value = sub.id;
+      opt.textContent = `${sub.course_name} (${sub.course_code || 'CC'}) • ${sub.class_name} Sem-${sub.semester}`;
+      select.appendChild(opt);
+    });
+
+    // Also populate Target CO dropdown in Create Assessment Form if not already populated
+    const targetCoSelect = document.getElementById('casm-target-co');
+    if (targetCoSelect && targetCoSelect.children.length === 0) {
+      ['CO1', 'CO2', 'CO3', 'CO4', 'CO5'].forEach((co, idx) => {
+        const o = document.createElement('option');
+        o.value = co;
+        o.textContent = `${co}: Course Outcome ${idx + 1}`;
+        targetCoSelect.appendChild(o);
+      });
+    }
+
+    // Load data for the first subject
+    await loadObeDataForSelectedSubject();
+  } catch (e) {
+    console.error('Error loading OBE subjects:', e);
+  }
+}
+
+async function loadObeDataForSelectedSubject() {
+  const select = getObeSubjectSelect();
+  if (!select || !select.value) return;
+  const subjectId = select.value;
+
+  try {
+    // 1. Fetch Universal POs and PSOs
+    const poRes = await fetch('/api/obe/program-outcomes');
+    const poData = await poRes.json();
+    currentObeProgramOutcomes = poData.program_outcomes || [];
+    currentObeProgramSpecificOutcomes = poData.program_specific_outcomes || [];
+
+    // 2. Fetch Course Outcomes for this subject
+    const coRes = await fetch(`/api/obe/course-outcomes/${subjectId}`);
+    const coData = await coRes.json();
+    let cos = coData.course_outcomes || [];
+
+    // Zero-friction: if no custom COs configured yet, load standard template
+    if (!cos || cos.length === 0) {
+      const defRes = await fetch('/api/obe/course-outcomes/0');
+      const defData = await defRes.json();
+      cos = defData.course_outcomes || [];
+    }
+    currentObeSubjectCos = cos;
+
+    // 3. Render Articulation Matrix Grid (CO1-CO5 vs PO1-PO12 & PSO1-PSO4)
+    renderObeMatrixGrid(cos, currentObeProgramOutcomes, currentObeProgramSpecificOutcomes);
+
+    // 4. Render CO Statements & Benchmarks Table
+    renderObeCoSetupTable(cos);
+
+    // 5. Fetch Live Attainment Report
+    const attRes = await fetch(`/api/obe/teacher-attainment/${subjectId}`);
+    const attData = await attRes.json();
+    currentObeAttainmentData = attData;
+
+    // 6. Update Live KPI Cards
+    updateObeKpis(attData, cos);
+
+    // 7. Render Live Attainment Tables (CO, PO, and PSO)
+    renderObeLiveAttainmentTables(attData);
+
+  } catch (e) {
+    console.error('Error loading OBE data:', e);
+  }
+}
+
+function updateObeKpis(attData, cos) {
+  const kpiCo = document.getElementById('obe-kpi-co-count');
+  const kpiBench = document.getElementById('obe-kpi-benchmark');
+  const kpiAtt = document.getElementById('obe-kpi-attainment');
+  const kpiLvl = document.getElementById('obe-kpi-level');
+  const isMr = (currentLanguage === 'mr');
+
+  if (kpiCo) {
+    kpiCo.innerText = `${cos ? cos.length : 5} COs`;
+  }
+  if (kpiBench) {
+    const b = (cos && cos[0] && cos[0].target_benchmark_percentage) ? cos[0].target_benchmark_percentage : 60;
+    kpiBench.innerText = `≥ ${b}% ${isMr ? 'गुण' : 'Marks'}`;
+  }
+  if (kpiAtt) {
+    const pct = attData ? (attData.overall_attainment_percentage || 0) : 0;
+    kpiAtt.innerText = `${pct}%`;
+  }
+  if (kpiLvl) {
+    const lvl = attData ? (attData.overall_naac_level || 0) : 0;
+    kpiLvl.innerText = isMr ? `पातळी ${lvl}` : `Level ${lvl}`;
+  }
+}
+
+function renderObeMatrixGrid(cos, pos, psos) {
+  const thead = document.getElementById('obe-matrix-thead');
+  const tbody = document.getElementById('obe-matrix-tbody');
+  const tfoot = document.getElementById('obe-matrix-tfoot');
+  if (!thead || !tbody || !tfoot) return;
+
+  const isMr = (currentLanguage === 'mr');
+  pos = pos || currentObeProgramOutcomes || [];
+  psos = psos || currentObeProgramSpecificOutcomes || [];
+
+  const poCount = pos.length || 12;
+  const psoCount = psos.length || 4;
+
+  // 1. Build Header
+  let row1 = `
+    <tr>
+      <th rowspan="2" class="p-2.5 bg-indigo-950 text-white font-extrabold text-center border-r border-indigo-700 w-16">
+        ${isMr ? 'CO कोड' : 'CO Code'}
+      </th>
+      <th colspan="${poCount}" class="p-2 bg-indigo-900 text-white font-extrabold text-center border-b border-r border-indigo-700 tracking-wide text-xs">
+        <i class="fa-solid fa-graduation-cap mr-1 text-indigo-300"></i> ${isMr ? 'पदवी कार्यक्रम निष्पत्ती (Program Outcomes - PO1 ते PO12)' : 'Program Outcomes (PO1 to PO12)'}
+      </th>
+      <th colspan="${psoCount}" class="p-2 bg-purple-900 text-white font-extrabold text-center border-b border-purple-700 tracking-wide text-xs">
+        <i class="fa-solid fa-shapes mr-1 text-purple-300"></i> ${isMr ? 'पदवी विशेष निष्पत्ती (PSOs)' : 'Program Specific Outcomes (PSOs)'}
+      </th>
+    </tr>
+  `;
+
+  let row2 = '<tr>';
+  pos.forEach(po => {
+    const title = isMr ? (po.po_title_mr || po.po_title || po.po_code) : (po.po_title_en || po.po_title || po.po_code);
+    row2 += `
+      <th class="p-2 bg-indigo-800/90 text-indigo-100 font-bold text-center border-r border-indigo-700/60 min-w-[42px] cursor-help hover:bg-indigo-700" title="${escapeHtml(title)}">
+        <div class="text-[11px] leading-tight">${po.po_code}</div>
+      </th>
+    `;
+  });
+  psos.forEach(pso => {
+    const title = isMr ? (pso.pso_title_mr || pso.pso_title || pso.pso_code) : (pso.pso_title_en || pso.pso_title || pso.pso_code);
+    row2 += `
+      <th class="p-2 bg-purple-800/90 text-purple-100 font-bold text-center border-r border-purple-700/60 min-w-[42px] cursor-help hover:bg-purple-700" title="${escapeHtml(title)}">
+        <div class="text-[11px] leading-tight">${pso.pso_code}</div>
+      </th>
+    `;
+  });
+  row2 += '</tr>';
+  thead.innerHTML = row1 + row2;
+
+  // 2. Build Rows for each CO (CO1 to CO5)
+  if (!cos || cos.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${1 + poCount + psoCount}" class="p-4 text-center text-slate-400">${isMr ? 'कोणतीही CO व्याख्या आढळली नाही.' : 'No Course Outcomes found.'}</td></tr>`;
+    tfoot.innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = cos.map(co => {
+    const mapping = co.po_mapping || {};
+    let cellsHtml = '';
+
+    // PO cells
+    pos.forEach(po => {
+      const w = parseInt(mapping[po.po_code] || 0);
+      const btnClass = getMatrixWeightClass(w);
+      const poTitle = isMr ? (po.po_title_mr || po.po_title || '') : (po.po_title_en || po.po_title || '');
+      cellsHtml += `
+        <td class="p-1.5 text-center border-r border-slate-100">
+          <button type="button" 
+                  class="${btnClass}" 
+                  data-cocode="${co.co_code}" 
+                  data-targetcode="${po.po_code}" 
+                  data-weight="${w}" 
+                  title="${co.co_code} &rarr; ${po.po_code} (${escapeHtml(poTitle)}): ${w > 0 ? (isMr ? 'सहसंबंध ' + w : 'Weight ' + w) : (isMr ? 'सहसंबंध नाही' : 'No correlation')}"
+                  onclick="cycleMatrixWeight(this)">
+            ${w > 0 ? w : '—'}
+          </button>
+        </td>
+      `;
+    });
+
+    // PSO cells
+    psos.forEach(pso => {
+      const w = parseInt(mapping[pso.pso_code] || 0);
+      const btnClass = getMatrixWeightClass(w);
+      const psoTitle = isMr ? (pso.pso_title_mr || pso.pso_title || '') : (pso.pso_title_en || pso.pso_title || '');
+      cellsHtml += `
+        <td class="p-1.5 text-center border-r border-purple-50">
+          <button type="button" 
+                  class="${btnClass}" 
+                  data-cocode="${co.co_code}" 
+                  data-targetcode="${pso.pso_code}" 
+                  data-weight="${w}" 
+                  title="${co.co_code} &rarr; ${pso.pso_code} (${escapeHtml(psoTitle)}): ${w > 0 ? (isMr ? 'सहसंबंध ' + w : 'Weight ' + w) : (isMr ? 'सहसंबंध नाही' : 'No correlation')}"
+                  onclick="cycleMatrixWeight(this)">
+            ${w > 0 ? w : '—'}
+          </button>
+        </td>
+      `;
+    });
+
+    return `
+      <tr class="hover:bg-indigo-50/20 transition-colors">
+        <td class="p-2 font-black text-indigo-950 bg-slate-50 border-r border-slate-200 text-center text-xs">
+          ${co.co_code}
+        </td>
+        ${cellsHtml}
+      </tr>
+    `;
+  }).join('');
+
+  // 3. Build Footer with Column Averages
+  let footCols = '';
+  pos.forEach(po => {
+    footCols += `<td id="obe-avg-${po.po_code}" class="p-2 text-center text-xs font-black text-indigo-900 border-r border-slate-200">—</td>`;
+  });
+  psos.forEach(pso => {
+    footCols += `<td id="obe-avg-${pso.pso_code}" class="p-2 text-center text-xs font-black text-purple-900 border-r border-purple-100">—</td>`;
+  });
+
+  tfoot.innerHTML = `
+    <tr class="bg-indigo-50/50 border-t-2 border-indigo-200">
+      <td class="p-2.5 font-black text-indigo-950 bg-indigo-100/70 border-r border-indigo-300 text-center text-[11px] whitespace-nowrap">
+        ${isMr ? 'सरासरी सहसंबंध' : 'Average Correlation'}
+      </td>
+      ${footCols}
+    </tr>
+  `;
+
+  // Calculate Initial Column Averages
+  updateMatrixAverages();
+}
+
+function cycleMatrixWeight(btn) {
+  const current = parseInt(btn.getAttribute('data-weight') || '0');
+  // Order: 0 -> 3 -> 2 -> 1 -> 0
+  let next = 0;
+  if (current === 0) next = 3;
+  else if (current === 3) next = 2;
+  else if (current === 2) next = 1;
+  else next = 0;
+
+  btn.setAttribute('data-weight', next);
+  btn.textContent = next > 0 ? next : '—';
+  btn.className = getMatrixWeightClass(next);
+
+  // Update tooltip title
+  const coCode = btn.getAttribute('data-cocode') || '';
+  const targetCode = btn.getAttribute('data-targetcode') || '';
+  const isMr = (currentLanguage === 'mr');
+  btn.title = `${coCode} → ${targetCode}: ${next > 0 ? (isMr ? 'सहसंबंध ' + next : 'Weight ' + next) : (isMr ? 'सहसंबंध नाही' : 'No correlation')}`;
+
+  updateMatrixAverages();
+}
+
+function getMatrixWeightClass(w) {
+  const base = "w-8 h-8 rounded-lg text-xs transition-all flex items-center justify-center cursor-pointer border mx-auto select-none ";
+  if (w === 3) {
+    return base + "bg-emerald-100 text-emerald-800 border-emerald-400 font-extrabold shadow-sm hover:bg-emerald-200";
+  } else if (w === 2) {
+    return base + "bg-blue-100 text-blue-800 border-blue-400 font-bold shadow-sm hover:bg-blue-200";
+  } else if (w === 1) {
+    return base + "bg-amber-100 text-amber-800 border-amber-300 font-semibold shadow-sm hover:bg-amber-200";
+  } else {
+    return base + "bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100";
+  }
+}
+
+function updateMatrixAverages() {
+  const allCols = [
+    ...(currentObeProgramOutcomes || []).map(p => p.po_code),
+    ...(currentObeProgramSpecificOutcomes || []).map(p => p.pso_code)
+  ];
+  allCols.forEach(colCode => {
+    const cells = document.querySelectorAll(`button[data-targetcode="${colCode}"]`);
+    let sum = 0;
+    let count = 0;
+    cells.forEach(c => {
+      const w = parseInt(c.getAttribute('data-weight') || '0');
+      if (w > 0) {
+        sum += w;
+        count++;
+      }
+    });
+    const avgCell = document.getElementById(`obe-avg-${colCode}`);
+    if (avgCell) {
+      if (count > 0) {
+        avgCell.textContent = (sum / count).toFixed(2);
+        avgCell.className = "p-2 text-center text-xs font-black text-indigo-900 border-r border-slate-200";
+      } else {
+        avgCell.textContent = "—";
+        avgCell.className = "p-2 text-center text-xs font-medium text-slate-400 border-r border-slate-200";
+      }
+    }
+  });
+}
+
+function renderObeCoSetupTable(cos) {
+  const tbody = document.getElementById('obe-co-setup-tbody');
+  if (!tbody) return;
+
+  const isMr = (currentLanguage === 'mr');
+  if (!cos || cos.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-400">${isMr ? 'कोणतीही CO व्याख्या आढळली नाही. कृपया वर "मानक साचा भरा" वर क्लिक करा.' : 'No Course Outcomes defined. Please click "Load Standard Template" above.'}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = cos.map(co => {
+    return `
+      <tr class="obe-co-row hover:bg-slate-50 transition" data-cocode="${co.co_code}">
+        <td class="p-3 text-center font-black text-indigo-950 align-middle bg-slate-50 border-r border-slate-200 w-16">
+          ${co.co_code}
+        </td>
+        <td class="p-3 align-middle">
+          <textarea class="obe-co-desc w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-800 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" rows="2" placeholder="${isMr ? 'अभ्यासक्रम उद्दिष्ट विधान प्रविष्ट करा...' : 'Enter Course Outcome statement...'}">${escapeHtml(co.co_description || co.co_statement || '')}</textarea>
+        </td>
+        <td class="p-3 text-center align-middle w-32">
+          <div class="flex items-center justify-center gap-1.5">
+            <input type="number" class="obe-co-benchmark w-16 text-center rounded-xl border border-slate-300 p-2 text-xs font-extrabold text-slate-900 bg-white focus:ring-2 focus:ring-indigo-500" value="${co.target_benchmark_percentage || co.target_benchmark || 60}" min="1" max="100">
+            <span class="text-xs font-bold text-slate-600">%</span>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderObeLiveAttainmentTables(attData) {
+  const coTbody = document.getElementById('obe-co-attainment-tbody');
+  const poTbody = document.getElementById('obe-po-attainment-tbody');
+  const psoTbody = document.getElementById('obe-pso-attainment-tbody');
+  if (!coTbody || !poTbody) return;
+
+  const isMr = (currentLanguage === 'mr');
+  const coList = (attData && attData.co_attainment) ? attData.co_attainment : [];
+  const poList = (attData && attData.po_attainment) ? attData.po_attainment : [];
+  const psoList = (attData && attData.pso_attainment) ? attData.pso_attainment : [];
+
+  // 1. CO Attainment Table
+  if (coList.length === 0) {
+    coTbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">${isMr ? 'या विषयासाठी अद्याप कोणतेही मूल्यमापन झालेले नाही.' : 'No evaluations recorded for this subject yet.'}</td></tr>`;
+  } else {
+    coTbody.innerHTML = coList.map(item => {
+      let levelClass = 'bg-slate-100 text-slate-800';
+      if (item.naac_level === 3) levelClass = 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-black';
+      else if (item.naac_level === 2) levelClass = 'bg-blue-100 text-blue-900 border border-blue-300 font-bold';
+      else if (item.naac_level === 1) levelClass = 'bg-amber-100 text-amber-900 border border-amber-300 font-bold';
+      else levelClass = 'bg-rose-100 text-rose-900 border border-rose-300';
+
+      const statusBadge = item.is_attained
+        ? `<span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold"><i class="fa-solid fa-circle-check mr-1"></i>${isMr ? 'साध्य (Attained)' : 'Attained'}</span>`
+        : `<span class="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-medium"><i class="fa-solid fa-clock mr-1"></i>${isMr ? 'प्रयत्न आवश्यक' : 'In Progress'}</span>`;
+
+      return `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="p-3 text-center font-black text-indigo-900">${item.co_code}</td>
+          <td class="p-3 font-medium text-slate-800">${escapeHtml(item.co_description || item.co_statement || '')}</td>
+          <td class="p-3 text-center font-semibold text-slate-700">${item.assessments_count} ${isMr ? 'चाचण्या' : 'Exams'}</td>
+          <td class="p-3 text-center font-bold text-slate-800">${item.students_meeting_target} / ${item.students_evaluated}</td>
+          <td class="p-3 text-center font-black text-teal-800 text-sm">${item.attainment_percentage || item.attainment_pct || 0}%</td>
+          <td class="p-3 text-center">
+            <span class="px-2 py-0.5 rounded-md text-xs ${levelClass}">${isMr ? 'पातळी ' + item.naac_level : 'Level ' + item.naac_level}</span>
+          </td>
+          <td class="p-3 text-center">${statusBadge}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // 2. PO Attainment Table (PO1 to PO12)
+  if (poList.length === 0) {
+    poTbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">${isMr ? 'PO साध्यता डेटा उपलब्ध नाही.' : 'PO attainment data not available.'}</td></tr>`;
+  } else {
+    poTbody.innerHTML = poList.map(item => {
+      let levelClass = 'bg-slate-100 text-slate-800';
+      if (item.naac_level === 3) levelClass = 'bg-emerald-100 text-emerald-900 font-black';
+      else if (item.naac_level === 2) levelClass = 'bg-blue-100 text-blue-900 border border-blue-300 font-bold';
+      else if (item.naac_level === 1) levelClass = 'bg-amber-100 text-amber-900 border border-amber-300 font-bold';
+
+      const title = isMr ? (item.po_title_mr || item.po_title || '') : (item.po_title_en || item.po_title || '');
+      const desc = isMr ? (item.po_description_mr || item.po_description || '') : (item.po_description_en || item.po_description || '');
+
+      return `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="p-3 text-center font-black text-indigo-950">${item.po_code}</td>
+          <td class="p-3">
+            <div class="font-bold text-slate-900">${escapeHtml(title)}</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(desc)}</div>
+          </td>
+          <td class="p-3 text-center font-bold text-indigo-700">${(item.mapped_cos || []).join(', ') || '—'}</td>
+          <td class="p-3 text-center font-black text-indigo-900 text-sm">${item.attainment_percentage || item.attainment_pct || 0}%</td>
+          <td class="p-3 text-center">
+            <span class="px-2.5 py-0.5 rounded-md text-xs ${levelClass}">${isMr ? 'पातळी ' + item.naac_level : 'Level ' + item.naac_level}</span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // 3. PSO Attainment Table (PSO1 to PSO4)
+  if (psoTbody) {
+    if (psoList.length === 0) {
+      psoTbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">${isMr ? 'PSO साध्यता डेटा उपलब्ध नाही.' : 'PSO attainment data not available.'}</td></tr>`;
+    } else {
+      psoTbody.innerHTML = psoList.map(item => {
+        let levelClass = 'bg-slate-100 text-slate-800';
+        if (item.naac_level === 3) levelClass = 'bg-purple-100 text-purple-900 font-black';
+        else if (item.naac_level === 2) levelClass = 'bg-blue-100 text-blue-900 font-bold';
+        else if (item.naac_level === 1) levelClass = 'bg-amber-100 text-amber-900 font-bold';
+
+        const title = isMr ? (item.pso_title_mr || item.pso_title || '') : (item.pso_title_en || item.pso_title || '');
+        const desc = isMr ? (item.pso_description_mr || item.pso_description || '') : (item.pso_description_en || item.pso_description || '');
+
+        return `
+          <tr class="hover:bg-slate-50 transition">
+            <td class="p-3 text-center font-black text-purple-950">${item.pso_code}</td>
+            <td class="p-3">
+              <div class="font-bold text-slate-900">${escapeHtml(title)}</div>
+              <div class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(desc)}</div>
+            </td>
+            <td class="p-3 text-center font-bold text-purple-700">${(item.mapped_cos || []).join(', ') || '—'}</td>
+            <td class="p-3 text-center font-black text-purple-900 text-sm">${item.attainment_percentage || item.attainment_pct || 0}%</td>
+            <td class="p-3 text-center">
+              <span class="px-2.5 py-0.5 rounded-md text-xs ${levelClass}">${isMr ? 'पातळी ' + item.naac_level : 'Level ' + item.naac_level}</span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+  }
+}
+
+async function loadDefaultCourseOutcomesTemplate() {
+  try {
+    const res = await fetch('/api/obe/course-outcomes/0');
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || (currentLanguage === 'mr' ? 'साचा लोड करण्यात त्रुटी' : 'Failed to load default template'), 'error');
+      return;
+    }
+    const cos = data.course_outcomes || [];
+    currentObeSubjectCos = cos;
+    if (data.program_outcomes && data.program_outcomes.length > 0) {
+      currentObeProgramOutcomes = data.program_outcomes;
+    }
+    if (data.program_specific_outcomes && data.program_specific_outcomes.length > 0) {
+      currentObeProgramSpecificOutcomes = data.program_specific_outcomes;
+    }
+    renderObeMatrixGrid(cos, currentObeProgramOutcomes, currentObeProgramSpecificOutcomes);
+    renderObeCoSetupTable(cos);
+    const msg = currentLanguage === 'mr' 
+      ? 'मानक CO1 ते CO5 साचा आणि सहसंबंध तक्ता लोड केला आहे! आता "CO व मॅट्रिक्स सेव्ह करा" वर क्लिक करा.'
+      : 'Standard CO1 to CO5 template and correlation matrix loaded! Now click "Save CO & Matrix".';
+    showToast(msg, 'success');
+  } catch (e) {
+    showToast(currentLanguage === 'mr' ? 'साचा लोड करण्यात त्रुटी' : 'Error loading template', 'error');
+  }
+}
+
+async function saveCourseOutcomesConfiguration() {
+  const select = getObeSubjectSelect();
+  if (!select || !select.value) {
+    showToast(currentLanguage === 'mr' ? 'कृपया प्रथम विषय निवडा' : 'Please select a subject first', 'error');
+    return;
+  }
+  const subjectId = parseInt(select.value);
+
+  const rows = document.querySelectorAll('.obe-co-row');
+  const courseOutcomes = [];
+
+  rows.forEach(r => {
+    const coCode = r.getAttribute('data-cocode');
+    const desc = r.querySelector('.obe-co-desc')?.value.trim() || '';
+    const benchmark = parseFloat(r.querySelector('.obe-co-benchmark')?.value) || 60.0;
+    const poMapping = {};
+
+    // Read mapped weights from matrix grid cells for this CO
+    const matrixButtons = document.querySelectorAll(`button[data-cocode="${coCode}"]`);
+    matrixButtons.forEach(btn => {
+      const targetCode = btn.getAttribute('data-targetcode');
+      const weight = parseInt(btn.getAttribute('data-weight') || '0');
+      if (weight > 0) {
+        poMapping[targetCode] = weight;
+      }
+    });
+
+    courseOutcomes.push({
+      co_code: coCode,
+      co_description: desc,
+      target_benchmark_percentage: benchmark,
+      po_mapping: poMapping
+    });
+  });
+
+  try {
+    const res = await fetch('/api/obe/course-outcomes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subject_id: subjectId,
+        course_outcomes: courseOutcomes
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || (currentLanguage === 'mr' ? 'CO साठवण्यात त्रुटी आली' : 'Failed to save CO configuration'), 'error');
+      return;
+    }
+
+    showToast(currentLanguage === 'mr' ? 'Course Outcomes व PO/PSO मॅपिंग यशस्वीरीत्या जतन केले!' : 'Course Outcomes & PO/PSO Matrix saved successfully!', 'success');
+    await loadObeDataForSelectedSubject();
+  } catch (e) {
+    showToast(currentLanguage === 'mr' ? 'CO साठवण्यात त्रुटी आली' : 'Error saving CO configuration', 'error');
+  }
+}
+
+// =========================================================================
+// ADMIN NAAC CRITERION 2.6 COLLEGE ATTAINMENT ENGINE
+// =========================================================================
+async function loadAdminCollegesList() {
+  const select = document.getElementById('admin-naac-college-select');
+  if (!select) return;
+
+  try {
+    const res = await fetch('/api/admin/colleges-list');
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || (currentLanguage === 'mr' ? 'महाविद्यालये लोड करण्यात त्रुटी' : 'Failed to load colleges'), 'error');
+      return;
+    }
+
+    const colleges = data.colleges || [];
+    select.innerHTML = '';
+    if (colleges.length === 0) {
+      select.innerHTML = currentLanguage === 'mr'
+        ? '<option value="">नोंदणीकृत महाविद्यालये आढळली नाहीत</option>'
+        : '<option value="">No registered colleges found</option>';
+      return;
+    }
+
+    colleges.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.college_name;
+      opt.textContent = `${c.college_name} (${c.approved_teachers_count || c.teachers_count || 0} ${currentLanguage === 'mr' ? 'प्राध्यापक' : 'Faculty'})`;
+      select.appendChild(opt);
+    });
+
+    await loadAdminCollegeAttainment();
+  } catch (e) {
+    console.error('Error loading colleges list:', e);
+  }
+}
+
+function onAdminNaacCollegeSelectChange() {
+  loadAdminCollegeAttainment();
+}
+
+async function loadAdminCollegeAttainment() {
+  const select = document.getElementById('admin-naac-college-select');
+  const yrInput = document.getElementById('admin-naac-academic-year');
+  if (!select || !select.value) return;
+
+  const collegeName = select.value;
+  const academicYear = yrInput ? yrInput.value.trim() : '2026–27';
+  const isMr = (currentLanguage === 'mr');
+
+  try {
+    const res = await fetch(`/api/admin/college-attainment?college=${encodeURIComponent(collegeName)}&academic_year=${encodeURIComponent(academicYear)}`);
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || (isMr ? 'महाविद्यालय साध्यता डेटा लोड करण्यात अयशस्वी' : 'Failed to load college attainment data'), 'error');
+      return;
+    }
+
+    const report = data.attainment_report;
+    const summary = report.summary || {};
+
+    // Update KPIs
+    if (document.getElementById('naac-kpi-total-courses')) {
+      document.getElementById('naac-kpi-total-courses').innerText = summary.total_courses_count || 0;
+    }
+    if (document.getElementById('naac-kpi-eval-courses')) {
+      document.getElementById('naac-kpi-eval-courses').innerText = summary.evaluated_courses_count || 0;
+    }
+    if (document.getElementById('naac-kpi-coverage')) {
+      document.getElementById('naac-kpi-coverage').innerText = `${summary.coverage_percentage || 0}%`;
+    }
+    if (document.getElementById('naac-kpi-overall-level')) {
+      document.getElementById('naac-kpi-overall-level').innerText = isMr ? `पातळी ${summary.overall_naac_level || 0}` : `Level ${summary.overall_naac_level || 0}`;
+    }
+    if (document.getElementById('naac-kpi-overall-pct')) {
+      document.getElementById('naac-kpi-overall-pct').innerText = `${summary.overall_attainment_percentage || 0}%`;
+    }
+
+    // Render Section A: PO1 to PO12 Institutional Matrix
+    const poTbody = document.getElementById('admin-naac-po-tbody');
+    if (poTbody) {
+      const pos = report.po_attainment_list || [];
+      if (pos.length === 0) {
+        poTbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">${isMr ? 'PO डेटा उपलब्ध नाही.' : 'PO data not available.'}</td></tr>`;
+      } else {
+        poTbody.innerHTML = pos.map(p => {
+          let lvlBadge = 'bg-slate-100 text-slate-700';
+          if (p.naac_level === 3) lvlBadge = 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-black';
+          else if (p.naac_level === 2) lvlBadge = 'bg-blue-100 text-blue-900 border border-blue-300 font-bold';
+          else if (p.naac_level === 1) lvlBadge = 'bg-amber-100 text-amber-900 border border-amber-300 font-bold';
+          else lvlBadge = 'bg-rose-100 text-rose-900 border border-rose-300';
+
+          const title = isMr ? (p.po_title_mr || p.po_title) : (p.po_title_en || p.po_title);
+          const desc = isMr ? (p.po_description_mr || p.po_description || '') : (p.po_description_en || p.po_description || '');
+
+          return `
+            <tr class="hover:bg-slate-50 transition">
+              <td class="p-3 text-center font-black text-indigo-950">${p.po_code}</td>
+              <td class="p-3">
+                <div class="font-bold text-slate-900">${escapeHtml(title)}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(desc)}</div>
+              </td>
+              <td class="p-3 text-center font-bold text-slate-700">${p.mapped_courses_count} ${isMr ? 'कोर्सेस' : 'Courses'}</td>
+              <td class="p-3 text-center font-black text-indigo-900 text-sm">${p.attainment_pct}%</td>
+              <td class="p-3 text-center">
+                <span class="px-2.5 py-1 rounded-md text-xs ${lvlBadge}">${isMr ? 'पातळी ' + p.naac_level : 'Level ' + p.naac_level}</span>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    // Render Section B: Faculty Breakdown
+    const courseTbody = document.getElementById('admin-naac-course-tbody');
+    if (courseTbody) {
+      const courses = report.teacher_breakdown || [];
+      if (courses.length === 0) {
+        courseTbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">${isMr ? 'कोर्स डेटा उपलब्ध नाही.' : 'Course data not available.'}</td></tr>`;
+      } else {
+        courseTbody.innerHTML = courses.map(c => {
+          let lvlBadge = 'bg-slate-100 text-slate-700';
+          if (c.naac_level === 3) lvlBadge = 'bg-emerald-100 text-emerald-900 font-black';
+          else if (c.naac_level === 2) lvlBadge = 'bg-blue-100 text-blue-900 font-bold';
+          else if (c.naac_level === 1) lvlBadge = 'bg-amber-100 text-amber-900 font-bold';
+
+          return `
+            <tr class="hover:bg-slate-50 transition">
+              <td class="p-3">
+                <div class="font-bold text-slate-900">${escapeHtml(c.course_name)}</div>
+                <div class="text-[11px] text-slate-500">${escapeHtml(c.course_code || 'CC')} • ${escapeHtml(c.subject_name || '')}</div>
+              </td>
+              <td class="p-3">
+                <div class="font-bold text-teal-950">${escapeHtml(c.teacher_name)}</div>
+                <div class="text-[11px] text-slate-500">${escapeHtml(c.designation || (isMr ? 'प्राध्यापक' : 'Faculty'))}</div>
+              </td>
+              <td class="p-3 text-slate-700 font-medium">${escapeHtml(c.class_name)} Sem-${c.semester}</td>
+              <td class="p-3 text-center font-bold text-slate-800">${c.students_evaluated}</td>
+              <td class="p-3 text-center font-bold text-emerald-700">${c.students_meeting_target}</td>
+              <td class="p-3 text-center font-black text-slate-900 text-sm">${c.attainment_pct}%</td>
+              <td class="p-3 text-center">
+                <span class="px-2.5 py-0.5 rounded-md text-xs ${lvlBadge}">${isMr ? 'पातळी ' + c.naac_level : 'Level ' + c.naac_level}</span>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+  } catch (e) {
+    console.error('Error loading college attainment:', e);
+  }
+}
+
+
+function downloadAdminCollegeAttainmentPdf() {
+  const select = document.getElementById('admin-naac-college-select');
+  const yrInput = document.getElementById('admin-naac-academic-year');
+  if (!select || !select.value) {
+    showToast('कृपया प्रथम महाविद्यालय निवडा', 'error');
+    return;
+  }
+  const collegeName = select.value;
+  const academicYear = yrInput ? yrInput.value.trim() : '2026–27';
+
+  const downloadUrl = `/api/admin/college-attainment-pdf?college=${encodeURIComponent(collegeName)}&academic_year=${encodeURIComponent(academicYear)}`;
+  window.open(downloadUrl, '_blank');
+}
+
 
 
 

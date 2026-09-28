@@ -430,6 +430,159 @@ MASTER_STREAM_CLASSES = {
     ]
 }
 
+# Universal 12 Program Outcomes (PO1 to PO12) aligned with UGC, Shivaji University & NAAC OBE Guidelines
+# Universal 12 Program Outcomes (PO1 to PO12) aligned with UGC, Shivaji University & NAAC OBE Guidelines
+DEFAULT_PROGRAM_OUTCOMES = [
+    {
+        "po_code": "PO1",
+        "po_title": "Disciplinary Knowledge (ज्ञान संपादन व विषयानुरूप प्रभुत्व)",
+        "po_title_en": "Disciplinary Knowledge",
+        "po_title_mr": "ज्ञान संपादन व विषयानुरूप प्रभुत्व",
+        "po_description": "Demonstrate comprehensive knowledge of one's discipline and related areas. (आपल्या अभ्यासक्रमाचे व संबंधित विषयांचे सर्वांगीण व सखोल ज्ञान आत्मसात करणे.)",
+        "po_description_en": "Demonstrate comprehensive knowledge of one's discipline and related areas.",
+        "po_description_mr": "आपल्या अभ्यासक्रमाचे व संबंधित विषयांचे सर्वांगीण व सखोल ज्ञान आत्मसात करणे."
+    },
+    {
+        "po_code": "PO2",
+        "po_title": "Communication Skills (प्रभावी संवाद व प्रकटीकरण कौशल्य)",
+        "po_title_en": "Communication Skills",
+        "po_title_mr": "प्रभावी संवाद व प्रकटीकरण कौशल्य",
+        "po_description": "Express ideas clearly and effectively in written and oral forms using appropriate media. (लेखी व मौखिक स्वरूपात तसेच आधुनिक माध्यमांचा वापर करून प्रभावी प्रकटीकरण करणे.)",
+        "po_description_en": "Express ideas clearly and effectively in written and oral forms using appropriate media.",
+        "po_description_mr": "लेखी व मौखिक स्वरूपात तसेच आधुनिक माध्यमांचा वापर करून प्रभावी प्रकटीकरण करणे."
+    },
+    {
+        "po_code": "PO3",
+        "po_title": "Critical Thinking (चिकित्सक व विश्लेषणात्मक विचार)",
+        "po_title_en": "Critical Thinking",
+        "po_title_mr": "चिकित्सक व विश्लेषणात्मक विचार",
+        "po_description": "Apply analytical thinking to identify, define and solve problems with well-reasoned conclusions. (विविध संकल्पनांचे पृथक्करण करून तार्किक निष्कर्षापर्यंत पोहोचण्याची क्षमता विकसित करणे.)",
+        "po_description_en": "Apply analytical thinking to identify, define and solve problems with well-reasoned conclusions.",
+        "po_description_mr": "विविध संकल्पनांचे पृथक्करण करून तार्किक निष्कर्षापर्यंत पोहोचण्याची क्षमता विकसित करणे."
+    },
+    {
+        "po_code": "PO4",
+        "po_title": "Problem Solving (समस्या निराकरण व तार्किक उपाययोजना)",
+        "po_title_en": "Problem Solving",
+        "po_title_mr": "समस्या निराकरण व तार्किक उपाययोजना",
+        "po_description": "Use logical reasoning and innovation to solve complex problems systematically. (तार्किक पद्धत व नावीन्यपूर्ण दृष्टिकोन वापरून गुंतागुंतीच्या समस्यांचे नियोजनबद्ध निराकरण करणे.)",
+        "po_description_en": "Use logical reasoning and innovation to solve complex problems systematically.",
+        "po_description_mr": "तार्किक पद्धत व नावीन्यपूर्ण दृष्टिकोन वापरून गुंतागुंतीच्या समस्यांचे नियोजनबद्ध निराकरण करणे."
+    },
+    {
+        "po_code": "PO5",
+        "po_title": "Research-related Skills (संशोधन वृत्ती, डेटा संकलन व अन्वयार्थ)",
+        "po_title_en": "Research-related Skills",
+        "po_title_mr": "संशोधन वृत्ती, डेटा संकलन व अन्वयार्थ",
+        "po_description": "Develop skills for research design, data analysis, interpretation and inferences. (माहिती संकलन, डेटा विश्लेषण, शास्त्रीय मांडणी व निष्कर्ष काढण्याचे संशोधन कौशल्य विकसित करणे.)",
+        "po_description_en": "Develop skills for research design, data analysis, interpretation and inferences.",
+        "po_description_mr": "माहिती संकलन, डेटा विश्लेषण, शास्त्रीय मांडणी व निष्कर्ष काढण्याचे संशोधन कौशल्य विकसित करणे."
+    },
+    {
+        "po_code": "PO6",
+        "po_title": "Cooperation / Team Work (सहकार्य, समूह समन्वय व संघकार्य)",
+        "po_title_en": "Cooperation / Team Work",
+        "po_title_mr": "सहकार्य, समूह समन्वय व संघकार्य",
+        "po_description": "Work effectively as a member or leader in diverse teams and multidisciplinary settings. (विविध बहुविद्याशाखीय समूहात सक्रिय सभासद किंवा नेतृत्व म्हणून सहकार्याने कार्य करणे.)",
+        "po_description_en": "Work effectively as a member or leader in diverse teams and multidisciplinary settings.",
+        "po_description_mr": "विविध बहुविद्याशाखीय समूहात सक्रिय सभासद किंवा नेतृत्व म्हणून सहकार्याने कार्य करणे."
+    },
+    {
+        "po_code": "PO7",
+        "po_title": "Scientific Reasoning / Reflective Thinking (वैज्ञानिक दृष्टिकोन व चिंतनशीलता)",
+        "po_title_en": "Scientific Reasoning & Reflective Thinking",
+        "po_title_mr": "वैज्ञानिक दृष्टिकोन व चिंतनशीलता",
+        "po_description": "Apply scientific knowledge and ethical reasoning to real-world situations. (वैज्ञानिक विचारसरणी, पुरावा-आधारित मूल्यमापन आणि आत्मपरीक्षणात्मक दृष्टिकोन प्रत्यक्ष जीवनात वापरणे.)",
+        "po_description_en": "Apply scientific knowledge and ethical reasoning to real-world situations.",
+        "po_description_mr": "वैज्ञानिक विचारसरणी, पुरावा-आधारित मूल्यमापन आणि आत्मपरीक्षणात्मक दृष्टिकोन प्रत्यक्ष जीवनात वापरणे."
+    },
+    {
+        "po_code": "PO8",
+        "po_title": "Digital Literacy (माहिती तंत्रज्ञान व डिजिटल साक्षरता)",
+        "po_title_en": "Digital Literacy",
+        "po_title_mr": "माहिती तंत्रज्ञान व डिजिटल साक्षरता",
+        "po_description": "Use modern ICT tools and resources safely, ethically and effectively. (आधुनिक आयसीटी, संगणकीय व डिजिटल साधनांचा जबाबदार, सुरक्षित व परिणामकारक वापर करणे.)",
+        "po_description_en": "Use modern ICT tools and resources safely, ethically and effectively.",
+        "po_description_mr": "आधुनिक आयसीटी, संगणकीय व डिजिटल साधनांचा जबाबदार, सुरक्षित व परिणामकारक वापर करणे."
+    },
+    {
+        "po_code": "PO9",
+        "po_title": "Ethics and Values (नैतिक मूल्ये व सामाजिक उत्तरदायित्व)",
+        "po_title_en": "Ethics and Values",
+        "po_title_mr": "नैतिक मूल्ये व सामाजिक उत्तरदायित्व",
+        "po_description": "Recognize ethical issues, demonstrate moral integrity, and embrace constitutional values. (नैतिक मूल्ये, प्रामाणिकपणा आणि भारतीय संविधानातील समता, बंधुता व न्यायाचे भान बाळगणे.)",
+        "po_description_en": "Recognize ethical issues, demonstrate moral integrity, and embrace constitutional values.",
+        "po_description_mr": "नैतिक मूल्ये, प्रामाणिकपणा आणि भारतीय संविधानातील समता, बंधुता व न्यायाचे भान बाळगणे."
+    },
+    {
+        "po_code": "PO10",
+        "po_title": "Lifelong Learning (आजीवन निरंतर अध्ययन व स्वयं-विकास)",
+        "po_title_en": "Lifelong Learning",
+        "po_title_mr": "आजीवन निरंतर अध्ययन व स्वयं-विकास",
+        "po_description": "Demonstrate the ability for independent and self-regulated learning throughout life. (बदलत्या जगाशी जुळवून घेण्यासाठी स्वतंत्रपणे आणि निरंतर ज्ञान संपादन करत राहणे.)",
+        "po_description_en": "Demonstrate the ability for independent and self-regulated learning throughout life.",
+        "po_description_mr": "बदलत्या जगाशी जुळवून घेण्यासाठी स्वतंत्रपणे आणि निरंतर ज्ञान संपादन करत राहणे."
+    },
+    {
+        "po_code": "PO11",
+        "po_title": "Leadership and Initiative (नेतृत्व गुण व स्वयं-पुढाकार)",
+        "po_title_en": "Leadership & Initiative",
+        "po_title_mr": "नेतृत्व गुण व स्वयं-पुढाकार",
+        "po_description": "Inspire others, take initiative, make informed decisions, and manage projects effectively. (समूहाला प्रेरित करणे, पुढाकार घेणे, योग्य निर्णय क्षमता आणि प्रकल्प नियोजन कौशल्य दाखवणे.)",
+        "po_description_en": "Inspire others, take initiative, make informed decisions, and manage projects effectively.",
+        "po_description_mr": "समूहाला प्रेरित करणे, पुढाकार घेणे, योग्य निर्णय क्षमता आणि प्रकल्प नियोजन कौशल्य दाखवणे."
+    },
+    {
+        "po_code": "PO12",
+        "po_title": "Environmental and Sustainability (पर्यावरण जाणीव व शाश्वत विकास)",
+        "po_title_en": "Environmental & Sustainability",
+        "po_title_mr": "पर्यावरण जाणीव व शाश्वत विकास",
+        "po_description": "Understand environmental challenges, ecological balance, and practice sustainable actions. (पर्यावरणीय समस्यांची जाणीव ठेवून शाश्वत विकासासाठी कृतीशील योगदान देणे.)",
+        "po_description_en": "Understand environmental challenges, ecological balance, and practice sustainable actions.",
+        "po_description_mr": "पर्यावरणीय समस्यांची जाणीव ठेवून शाश्वत विकासासाठी कृतीशील योगदान देणे."
+    }
+]
+
+# Standard Program Specific Outcomes (PSO1 to PSO4) aligned with Higher Education Disciplinary Guidelines
+DEFAULT_PROGRAM_SPECIFIC_OUTCOMES = [
+    {
+        "pso_code": "PSO1",
+        "pso_title": "Domain Mastery & Theoretical Principles (विषय ज्ञान व मूलभूत संकल्पनांचे प्रभुत्व)",
+        "pso_title_en": "Domain Mastery & Theoretical Principles",
+        "pso_title_mr": "विषय ज्ञान व मूलभूत संकल्पनांचे प्रभुत्व",
+        "pso_description": "Master core theoretical principles, disciplinary frameworks, and advanced conceptual foundations. (विषयातील मूलभूत सिद्धांत, संज्ञा, संकल्पना व प्रगत ज्ञानशाखेचे सखोल आकलन प्राप्त करणे.)",
+        "pso_description_en": "Master core theoretical principles, disciplinary frameworks, and advanced conceptual foundations.",
+        "pso_description_mr": "विषयातील मूलभूत सिद्धांत, संज्ञा, संकल्पना व प्रगत ज्ञानशाखेचे सखोल आकलन प्राप्त करणे."
+    },
+    {
+        "pso_code": "PSO2",
+        "pso_title": "Practical & Methodological Applications (प्रात्यक्षिक, विश्लेषणात्मक व प्रायोगिक कौशल्य)",
+        "pso_title_en": "Practical & Methodological Applications",
+        "pso_title_mr": "प्रात्यक्षिक, विश्लेषणात्मक व प्रायोगिक कौशल्य",
+        "pso_description": "Apply practical techniques, laboratory experiments, quantitative/qualitative methodologies, and case analyses. (प्रयोगशाळा प्रात्यक्षिके, माहिती संकलन, संख्याशास्त्रीय व गुणात्मक पद्धती आणि केस स्टडीजचे प्रत्यक्ष उपयोजन करणे.)",
+        "pso_description_en": "Apply practical techniques, laboratory experiments, quantitative/qualitative methodologies, and case analyses.",
+        "pso_description_mr": "प्रयोगशाळा प्रात्यक्षिके, माहिती संकलन, संख्याशास्त्रीय व गुणात्मक पद्धती आणि केस स्टडीजचे प्रत्यक्ष उपयोजन करणे."
+    },
+    {
+        "pso_code": "PSO3",
+        "pso_title": "Modern Tools & Research Readiness (आधुनिक तंत्रज्ञान साधने व संशोधन तयारी)",
+        "pso_title_en": "Modern Tools & Research Readiness",
+        "pso_title_mr": "आधुनिक तंत्रज्ञान साधने व संशोधन तयारी",
+        "pso_description": "Utilize modern computing tools, digital instruments, software packages, and scientific inquiry methods. (आधुनिक सॉफ्टवेअर, डिजिटल साधने, संगणकीय तंत्रज्ञान आणि वैज्ञानिक संशोधन पद्धतींचा प्रभावी वापर करणे.)",
+        "pso_description_en": "Utilize modern computing tools, digital instruments, software packages, and scientific inquiry methods.",
+        "pso_description_mr": "आधुनिक सॉफ्टवेअर, डिजिटल साधने, संगणकीय तंत्रज्ञान आणि वैज्ञानिक संशोधन पद्धतींचा प्रभावी वापर करणे."
+    },
+    {
+        "pso_code": "PSO4",
+        "pso_title": "Professional Readiness & Real-World Problem Solving (व्यावसायिक सक्षमता व प्रत्यक्ष समस्या निराकरण)",
+        "pso_title_en": "Professional Readiness & Real-World Problem Solving",
+        "pso_title_mr": "व्यावसायिक सक्षमता व प्रत्यक्ष समस्या निराकरण",
+        "pso_description": "Develop career readiness, entrepreneurial competencies, industrial adaptability, and sustainable community solutions. (उद्योग व सेवा क्षेत्रातील व्यावसायिक कौशल्ये, उद्योजकता, रोजगाराभिमुखता आणि सामाजिक समस्यांचे शाश्वत निराकरण करणे.)",
+        "pso_description_en": "Develop career readiness, entrepreneurial competencies, industrial adaptability, and sustainable community solutions.",
+        "pso_description_mr": "उद्योग व सेवा क्षेत्रातील व्यावसायिक कौशल्ये, उद्योजकता, रोजगाराभिमुखता आणि सामाजिक समस्यांचे शाश्वत निराकरण करणे."
+    }
+]
+
 def init_db():
     conn = get_db_connection()
     conn.execute("PRAGMA journal_mode = WAL")
@@ -778,6 +931,51 @@ def init_db():
     )
     """)
 
+    # 18. Program Outcomes (NAAC PO1 - PO12 Universal Outcomes)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS program_outcomes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        po_code TEXT NOT NULL UNIQUE,
+        po_title TEXT NOT NULL,
+        po_description TEXT,
+        display_order INTEGER DEFAULT 0,
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    # 19. Program Specific Outcomes (PSOs per Subject/Discipline)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS program_specific_outcomes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subject_id INTEGER,
+        teacher_id INTEGER,
+        pso_code TEXT NOT NULL,
+        pso_title TEXT NOT NULL,
+        pso_description TEXT,
+        display_order INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    # 20. Course Outcomes (COs per subject with PO mapping)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS course_outcomes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subject_id INTEGER NOT NULL,
+        teacher_id INTEGER NOT NULL,
+        co_code TEXT NOT NULL,
+        co_statement TEXT NOT NULL,
+        po_mapping_json TEXT DEFAULT '{}',
+        target_benchmark REAL DEFAULT 60.0,
+        display_order INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (subject_id) REFERENCES teacher_subjects(id) ON DELETE CASCADE,
+        FOREIGN KEY (teacher_id) REFERENCES teachers(id),
+        UNIQUE (subject_id, co_code)
+    )
+    """)
+
     # Column migrations
     try:
         # teacher_subjects migrations
@@ -795,6 +993,10 @@ def init_db():
             cursor.execute("ALTER TABLE created_assessments ADD COLUMN is_mcq INTEGER DEFAULT 0")
         if 'mcq_questions_json' not in cols_ca:
             cursor.execute("ALTER TABLE created_assessments ADD COLUMN mcq_questions_json TEXT DEFAULT '[]'")
+        if 'target_co' not in cols_ca:
+            cursor.execute("ALTER TABLE created_assessments ADD COLUMN target_co TEXT DEFAULT 'CO1'")
+        if 'descriptive_questions_json' not in cols_ca:
+            cursor.execute("ALTER TABLE created_assessments ADD COLUMN descriptive_questions_json TEXT DEFAULT '[]'")
         if 'is_individual_topics' not in cols_ca:
             cursor.execute("ALTER TABLE created_assessments ADD COLUMN is_individual_topics INTEGER DEFAULT 0")
         if 'student_topics_json' not in cols_ca:
@@ -811,12 +1013,18 @@ def init_db():
             cursor.execute("ALTER TABLE created_assessments ADD COLUMN meeting_time TEXT")
         if 'duration_minutes' not in cols_ca:
             cursor.execute("ALTER TABLE created_assessments ADD COLUMN duration_minutes INTEGER DEFAULT 0")
+        if 'show_marks_to_students' not in cols_ca:
+            cursor.execute("ALTER TABLE created_assessments ADD COLUMN show_marks_to_students INTEGER DEFAULT 1")
 
         # submissions migrations
         cursor.execute("PRAGMA table_info(submissions)")
         cols_s = [row['name'] if isinstance(row, sqlite3.Row) else row[1] for row in cursor.fetchall()]
         if 'mcq_answers_json' not in cols_s:
             cursor.execute("ALTER TABLE submissions ADD COLUMN mcq_answers_json TEXT DEFAULT '{}'")
+        if 'descriptive_answers_json' not in cols_s:
+            cursor.execute("ALTER TABLE submissions ADD COLUMN descriptive_answers_json TEXT DEFAULT '{}'")
+        if 'descriptive_marks_json' not in cols_s:
+            cursor.execute("ALTER TABLE submissions ADD COLUMN descriptive_marks_json TEXT DEFAULT '{}'")
         if 'is_auto_graded' not in cols_s:
             cursor.execute("ALTER TABLE submissions ADD COLUMN is_auto_graded INTEGER DEFAULT 0")
         if 'assigned_individual_topic' not in cols_s:
@@ -827,12 +1035,6 @@ def init_db():
             cursor.execute("ALTER TABLE submissions ADD COLUMN youtube_url TEXT")
         if 'pdf_url' not in cols_s:
             cursor.execute("ALTER TABLE submissions ADD COLUMN pdf_url TEXT")
-
-        # created_assessments migrations
-        cursor.execute("PRAGMA table_info(created_assessments)")
-        cols_ca = [row['name'] if isinstance(row, sqlite3.Row) else row[1] for row in cursor.fetchall()]
-        if 'show_marks_to_students' not in cols_ca:
-            cursor.execute("ALTER TABLE created_assessments ADD COLUMN show_marks_to_students INTEGER DEFAULT 1")
 
         # teachers migrations for validity and extension
         cursor.execute("PRAGMA table_info(teachers)")
@@ -861,6 +1063,20 @@ def init_db():
         SET validity_start = ?, validity_end = ?, academic_year = COALESCE(academic_year, ?)
         WHERE status = 'approved' AND (validity_end IS NULL OR validity_end = '')
         """, (val_start, val_end, acad_yr))
+
+        # program_outcomes bilingual columns migration
+        cursor.execute("PRAGMA table_info(program_outcomes)")
+        cols_po = [row['name'] if isinstance(row, sqlite3.Row) else row[1] for row in cursor.fetchall()]
+        for col in ['po_title_en', 'po_title_mr', 'po_description_en', 'po_description_mr']:
+            if col not in cols_po:
+                cursor.execute(f"ALTER TABLE program_outcomes ADD COLUMN {col} TEXT")
+
+        # program_specific_outcomes bilingual columns migration
+        cursor.execute("PRAGMA table_info(program_specific_outcomes)")
+        cols_pso = [row['name'] if isinstance(row, sqlite3.Row) else row[1] for row in cursor.fetchall()]
+        for col in ['pso_title_en', 'pso_title_mr', 'pso_description_en', 'pso_description_mr']:
+            if col not in cols_pso:
+                cursor.execute(f"ALTER TABLE program_specific_outcomes ADD COLUMN {col} TEXT")
     except Exception as e:
         print("Migration notice:", e)
 
@@ -902,7 +1118,12 @@ def init_db():
         
         "CREATE INDEX IF NOT EXISTS idx_ann_teacher ON teacher_announcements(teacher_id)",
         "CREATE INDEX IF NOT EXISTS idx_mat_teacher ON teacher_study_materials(teacher_id)",
-        "CREATE INDEX IF NOT EXISTS idx_admin_ann_active ON admin_announcements(is_active, id DESC)"
+        "CREATE INDEX IF NOT EXISTS idx_admin_ann_active ON admin_announcements(is_active, id DESC)",
+        
+        "CREATE INDEX IF NOT EXISTS idx_co_subject ON course_outcomes(subject_id)",
+        "CREATE INDEX IF NOT EXISTS idx_co_teacher ON course_outcomes(teacher_id)",
+        "CREATE INDEX IF NOT EXISTS idx_pso_subject ON program_specific_outcomes(subject_id)",
+        "CREATE INDEX IF NOT EXISTS idx_po_code ON program_outcomes(po_code)"
     ]
     for idx_sql in indexes:
         try:
@@ -1159,8 +1380,46 @@ def seed_database():
     if cursor.fetchone()['cnt'] == 0:
         seed_master_mapping_defaults(cursor)
 
+    # 6. Seed Default Program Outcomes (PO1 to PO12) and PSOs (PSO1 to PSO4)
+    seed_default_program_outcomes(cursor)
+    seed_default_program_specific_outcomes(cursor)
+
     conn.commit()
     conn.close()
+
+def seed_default_program_outcomes(cursor):
+    """Seed standard PO1 to PO12 and ensure bilingual fields are populated."""
+    for idx, po in enumerate(DEFAULT_PROGRAM_OUTCOMES, 1):
+        cursor.execute("SELECT id FROM program_outcomes WHERE po_code = ?", (po['po_code'],))
+        row = cursor.fetchone()
+        if not row:
+            cursor.execute("""
+            INSERT INTO program_outcomes (po_code, po_title, po_description, po_title_en, po_title_mr, po_description_en, po_description_mr, display_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (po['po_code'], po['po_title'], po['po_description'], po['po_title_en'], po['po_title_mr'], po['po_description_en'], po['po_description_mr'], idx))
+        else:
+            cursor.execute("""
+            UPDATE program_outcomes 
+            SET po_title_en = ?, po_title_mr = ?, po_description_en = ?, po_description_mr = ?, display_order = ?
+            WHERE po_code = ?
+            """, (po['po_title_en'], po['po_title_mr'], po['po_description_en'], po['po_description_mr'], idx, po['po_code']))
+
+def seed_default_program_specific_outcomes(cursor):
+    """Seed standard PSO1 to PSO4 if missing or update bilingual columns."""
+    for idx, pso in enumerate(DEFAULT_PROGRAM_SPECIFIC_OUTCOMES, 1):
+        cursor.execute("SELECT id FROM program_specific_outcomes WHERE pso_code = ? AND (subject_id IS NULL OR subject_id = 0)", (pso['pso_code'],))
+        row = cursor.fetchone()
+        if not row:
+            cursor.execute("""
+            INSERT INTO program_specific_outcomes (pso_code, pso_title, pso_description, pso_title_en, pso_title_mr, pso_description_en, pso_description_mr, display_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (pso['pso_code'], pso['pso_title'], pso['pso_description'], pso['pso_title_en'], pso['pso_title_mr'], pso['pso_description_en'], pso['pso_description_mr'], idx))
+        else:
+            cursor.execute("""
+            UPDATE program_specific_outcomes 
+            SET pso_title_en = ?, pso_title_mr = ?, pso_description_en = ?, pso_description_mr = ?, display_order = ?
+            WHERE pso_code = ? AND (subject_id IS NULL OR subject_id = 0)
+            """, (pso['pso_title_en'], pso['pso_title_mr'], pso['pso_description_en'], pso['pso_description_mr'], idx, pso['pso_code']))
 
 def seed_master_mapping_defaults(cursor):
     """Seed master streams, subjects, and classes from canonical MASTER_DISCIPLINES and MASTER_STREAM_CLASSES."""
@@ -1303,3 +1562,235 @@ def generate_next_submission_id(year_str=None, offset=0):
         next_seq = 101
     conn.close()
     return f"RAJ-IA-{year_str}-{(next_seq + offset):06d}"
+
+# ==========================================
+# OUTCOME-BASED EDUCATION (OBE) HELPERS
+# ==========================================
+
+def get_all_program_outcomes():
+    """Fetch all active Program Outcomes (PO1 to PO12) with bilingual titles and descriptions."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT id, po_code, po_title, po_description, 
+           COALESCE(po_title_en, po_title) as po_title_en,
+           COALESCE(po_title_mr, po_title) as po_title_mr,
+           COALESCE(po_description_en, po_description) as po_description_en,
+           COALESCE(po_description_mr, po_description) as po_description_mr,
+           display_order, is_active 
+    FROM program_outcomes 
+    WHERE is_active = 1 
+    ORDER BY display_order ASC, id ASC
+    """)
+    pos = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return pos
+
+def update_or_create_program_outcome(po_code, po_title, po_description, po_title_en=None, po_title_mr=None, po_description_en=None, po_description_mr=None):
+    """Admin/Teacher update or create Program Outcome."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM program_outcomes WHERE po_code = ?", (po_code,))
+    existing = cursor.fetchone()
+    if existing:
+        cursor.execute("""
+        UPDATE program_outcomes 
+        SET po_title = ?, po_description = ?, po_title_en = COALESCE(?, po_title_en), po_title_mr = COALESCE(?, po_title_mr),
+            po_description_en = COALESCE(?, po_description_en), po_description_mr = COALESCE(?, po_description_mr)
+        WHERE id = ?
+        """, (po_title, po_description, po_title_en, po_title_mr, po_description_en, po_description_mr, existing['id']))
+    else:
+        cursor.execute("SELECT MAX(display_order) as m FROM program_outcomes")
+        m_row = cursor.fetchone()
+        max_order = (m_row['m'] or 0) + 1
+        cursor.execute("""
+        INSERT INTO program_outcomes (po_code, po_title, po_description, po_title_en, po_title_mr, po_description_en, po_description_mr, display_order, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        """, (po_code, po_title, po_description, po_title_en or po_title, po_title_mr or po_title, po_description_en or po_description, po_description_mr or po_description, max_order))
+    conn.commit()
+    conn.close()
+    return True
+
+def get_all_program_specific_outcomes(subject_id=None, teacher_id=None):
+    """Retrieve PSOs for a given subject/teacher or return universal default PSOs."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    rows = []
+    if subject_id:
+        cursor.execute("""
+        SELECT id, subject_id, teacher_id, pso_code, pso_title, pso_description,
+               COALESCE(pso_title_en, pso_title) as pso_title_en,
+               COALESCE(pso_title_mr, pso_title) as pso_title_mr,
+               COALESCE(pso_description_en, pso_description) as pso_description_en,
+               COALESCE(pso_description_mr, pso_description) as pso_description_mr,
+               display_order
+        FROM program_specific_outcomes 
+        WHERE subject_id = ? 
+        ORDER BY display_order ASC, pso_code ASC
+        """, (subject_id,))
+        rows = cursor.fetchall()
+    
+    if not rows:
+        cursor.execute("""
+        SELECT id, subject_id, teacher_id, pso_code, pso_title, pso_description,
+               COALESCE(pso_title_en, pso_title) as pso_title_en,
+               COALESCE(pso_title_mr, pso_title) as pso_title_mr,
+               COALESCE(pso_description_en, pso_description) as pso_description_en,
+               COALESCE(pso_description_mr, pso_description) as pso_description_mr,
+               display_order
+        FROM program_specific_outcomes 
+        WHERE subject_id IS NULL OR subject_id = 0
+        ORDER BY display_order ASC, pso_code ASC
+        """)
+        rows = cursor.fetchall()
+    conn.close()
+    
+    if rows:
+        return [dict(r) for r in rows]
+    else:
+        return list(DEFAULT_PROGRAM_SPECIFIC_OUTCOMES)
+
+def update_or_create_program_specific_outcome(pso_code, pso_title, pso_description, subject_id=None, teacher_id=None, pso_title_en=None, pso_title_mr=None, pso_description_en=None, pso_description_mr=None):
+    """Update or create a Program Specific Outcome (PSO)."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if subject_id:
+        cursor.execute("SELECT id FROM program_specific_outcomes WHERE pso_code = ? AND subject_id = ?", (pso_code, subject_id))
+    else:
+        cursor.execute("SELECT id FROM program_specific_outcomes WHERE pso_code = ? AND (subject_id IS NULL OR subject_id = 0)", (pso_code,))
+    existing = cursor.fetchone()
+    if existing:
+        cursor.execute("""
+        UPDATE program_specific_outcomes 
+        SET pso_title = ?, pso_description = ?, pso_title_en = COALESCE(?, pso_title_en), pso_title_mr = COALESCE(?, pso_title_mr),
+            pso_description_en = COALESCE(?, pso_description_en), pso_description_mr = COALESCE(?, pso_description_mr)
+        WHERE id = ?
+        """, (pso_title, pso_description, pso_title_en, pso_title_mr, pso_description_en, pso_description_mr, existing['id']))
+    else:
+        cursor.execute("SELECT MAX(display_order) as m FROM program_specific_outcomes")
+        m_row = cursor.fetchone()
+        max_order = (m_row['m'] or 0) + 1
+        cursor.execute("""
+        INSERT INTO program_specific_outcomes (subject_id, teacher_id, pso_code, pso_title, pso_description, pso_title_en, pso_title_mr, pso_description_en, pso_description_mr, display_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (subject_id, teacher_id, pso_code, pso_title, pso_description, pso_title_en or pso_title, pso_title_mr or pso_title, pso_description_en or pso_description, pso_description_mr or pso_description, max_order))
+    conn.commit()
+    conn.close()
+    return True
+
+def get_default_course_outcomes_template():
+    """Standard 5 default Course Outcomes (CO1 to CO5) template with complete CO-PO & CO-PSO Correlation Matrix."""
+    return [
+        {
+            "co_code": "CO1",
+            "co_statement": "मूलभूत संकल्पना, व्याख्या व पायाभूत सिद्धांतांचे सर्वांगीण आकलन करणे. (Understand and remember fundamental concepts, definitions, and theories.)",
+            "co_statement_en": "Understand and articulate fundamental principles, definitions, and domain theories.",
+            "co_statement_mr": "मूलभूत संकल्पना, व्याख्या व पायाभूत सिद्धांतांचे सर्वांगीण आकलन करणे.",
+            "po_mapping": {"PO1": 3, "PO2": 2, "PO8": 1, "PSO1": 3, "PSO2": 2},
+            "target_benchmark": 60.0
+        },
+        {
+            "co_code": "CO2",
+            "co_statement": "विषयातील पद्धती व तंत्रांचे प्रत्यक्ष व व्यावहारिक उपयोजन करणे. (Apply theoretical principles and methods to practical, real-world problems.)",
+            "co_statement_en": "Apply theoretical principles, analytical methods, and tools to real-world scenarios.",
+            "co_statement_mr": "विषयातील पद्धती व तंत्रांचे प्रत्यक्ष व व्यावहारिक उपयोजन करणे.",
+            "po_mapping": {"PO1": 3, "PO3": 3, "PO4": 3, "PSO1": 2, "PSO2": 3},
+            "target_benchmark": 60.0
+        },
+        {
+            "co_code": "CO3",
+            "co_statement": "चिकित्सक, तुलनात्मक विश्लेषण करून निष्कर्षापर्यंत पोहोचणे. (Analyze data, critically assess diverse arguments, and infer sound conclusions.)",
+            "co_statement_en": "Analyze domain data, critically assess evidence, and infer rigorous conclusions.",
+            "co_statement_mr": "चिकित्सक, तुलनात्मक विश्लेषण करून निष्कर्षापर्यंत पोहोचणे.",
+            "po_mapping": {"PO3": 3, "PO5": 3, "PO7": 3, "PSO2": 2, "PSO3": 3},
+            "target_benchmark": 60.0
+        },
+        {
+            "co_code": "CO4",
+            "co_statement": "नावीन्यपूर्ण समस्या निराकरण, सादरीकरण व समूह समन्वय साधणे. (Formulate problem solutions, present findings effectively, and demonstrate teamwork.)",
+            "co_statement_en": "Synthesize problem solutions, communicate findings persuasively, and engage in collaborative teamwork.",
+            "co_statement_mr": "नावीन्यपूर्ण समस्या निराकरण, सादरीकरण व समूह समन्वय साधणे.",
+            "po_mapping": {"PO2": 3, "PO4": 3, "PO6": 3, "PO11": 2, "PSO3": 2, "PSO4": 3},
+            "target_benchmark": 60.0
+        },
+        {
+            "co_code": "CO5",
+            "co_statement": "नैतिक मूल्ये, पर्यावरण सजगता व शाश्वत दृष्टिकोन अंगीकारणे. (Evaluate ethical implications, environmental impact, and lifelong learning commitment.)",
+            "co_statement_en": "Evaluate ethical responsibilities, sustainability considerations, and commit to continuous lifelong learning.",
+            "co_statement_mr": "नैतिक मूल्ये, पर्यावरण सजगता व शाश्वत दृष्टिकोन अंगीकारणे.",
+            "po_mapping": {"PO9": 3, "PO10": 3, "PO12": 3, "PSO4": 3},
+            "target_benchmark": 60.0
+        }
+    ]
+
+def get_course_outcomes_for_subject(subject_id, teacher_id=None):
+    """Retrieve COs configured for a teacher's subject. If none configured, return standard defaults."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT id, subject_id, teacher_id, co_code, co_statement, po_mapping_json, target_benchmark, display_order
+    FROM course_outcomes
+    WHERE subject_id = ?
+    ORDER BY display_order ASC, co_code ASC
+    """, (subject_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    if rows:
+        results = []
+        for r in rows:
+            mapping = {}
+            try:
+                mapping = json.loads(r['po_mapping_json'] or '{}')
+            except Exception:
+                mapping = {}
+            results.append({
+                "id": r['id'],
+                "subject_id": r['subject_id'],
+                "teacher_id": r['teacher_id'],
+                "co_code": r['co_code'],
+                "co_statement": r['co_statement'],
+                "co_description": r['co_statement'],
+                "po_mapping": mapping,
+                "target_benchmark": r['target_benchmark'] or 60.0,
+                "target_benchmark_percentage": r['target_benchmark'] or 60.0,
+                "display_order": r['display_order']
+            })
+        return results
+    else:
+        # Return default template with subject_id attached
+        defaults = get_default_course_outcomes_template()
+        for idx, d in enumerate(defaults, 1):
+            d["subject_id"] = subject_id
+            d["teacher_id"] = teacher_id
+            d["display_order"] = idx
+            d["id"] = None
+        return defaults
+
+def save_course_outcomes_for_subject(subject_id, teacher_id, outcomes_list):
+    """Save or update Course Outcomes (COs) for a given subject."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("DELETE FROM course_outcomes WHERE subject_id = ?", (subject_id,))
+    
+    for idx, item in enumerate(outcomes_list, 1):
+        co_code = item.get('co_code', f'CO{idx}').strip()
+        co_stmt = (item.get('co_statement') or item.get('co_description') or '').strip()
+        po_map = item.get('po_mapping', {})
+        if isinstance(po_map, str):
+            try:
+                po_map = json.loads(po_map)
+            except Exception:
+                po_map = {}
+        benchmark = float(item.get('target_benchmark') or item.get('target_benchmark_percentage') or 60.0)
+        
+        cursor.execute("""
+        INSERT INTO course_outcomes (subject_id, teacher_id, co_code, co_statement, po_mapping_json, target_benchmark, display_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (subject_id, teacher_id, co_code, co_stmt, json.dumps(po_map), benchmark, idx))
+        
+    conn.commit()
+    conn.close()
+    return True
+
