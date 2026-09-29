@@ -1058,10 +1058,49 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
     story.append(summary_table)
     story.append(Spacer(1, 6))
 
+    # 2. Academic Term-wise Attainment Summary (Term I, Term II & Annual Attainment)
+    term_list = data.get('term_summary', [])
+    if term_list:
+        story.append(safe_paragraph("<b>2. Academic Term-wise Attainment Summary (Term I, Term II & Annual Consolidation)</b>", section_h2_style))
+        term_table_data = [
+            [
+                safe_paragraph("Academic Term / Cycle", th_style),
+                safe_paragraph("Semesters Included", th_style),
+                safe_paragraph("Courses (Total / Eval)", th_style),
+                safe_paragraph("Students Evaluated", th_style),
+                safe_paragraph("Direct Attainment (%)", th_style),
+                safe_paragraph("NAAC Level", th_style)
+            ]
+        ]
+        for t in term_list:
+            t_lvl = t.get('naac_level', 0)
+            t_color = level_color_map.get(t_lvl, "#2563EB")
+            is_annual = (t.get('term_number') == 'Annual')
+            term_table_data.append([
+                safe_paragraph(f"<b>{xml_clean(t.get('term_name', ''))}</b>", cell_bold if is_annual else cell_regular),
+                safe_paragraph(f"<center>{xml_clean(t.get('semesters_included', ''))}</center>", cell_bold if is_annual else cell_regular),
+                safe_paragraph(f"<center>{t.get('total_courses', 0)} / {t.get('evaluated_courses', 0)}</center>", cell_bold if is_annual else cell_regular),
+                safe_paragraph(f"<center>{t.get('students_evaluated', 0)}</center>", cell_bold if is_annual else cell_regular),
+                safe_paragraph(f"<center><b>{t.get('attainment_pct', 0.0):.1f}%</b></center>", cell_bold),
+                safe_paragraph(f"<center><font color='{t_color}'><b>Level {t_lvl}</b></font></center>", cell_bold)
+            ])
+        t_table = Table(term_table_data, colWidths=[173, 100, 85, 60, 65, 40])
+        t_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#065F46")), # Emerald Dark
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#065F46")),
+            ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor("#ECFDF5")]),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#D1FAE5")), # Highlight annual row
+        ]))
+        story.append(t_table)
+        story.append(Spacer(1, 6))
+
     # 3. Faculty / Stream-wise Attainment Summary
     stream_list = data.get('stream_summary', [])
     if stream_list:
-        story.append(safe_paragraph("<b>2. Faculty / Stream-wise Attainment Summary (Inter-Disciplinary Overview)</b>", section_h2_style))
+        story.append(safe_paragraph("<b>3. Faculty / Stream-wise Attainment Summary (Inter-Disciplinary Overview)</b>", section_h2_style))
         stream_table_data = [
             [
                 safe_paragraph("Faculty / Academic Stream", th_style),
@@ -1098,7 +1137,7 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
     # 4. Department-wise Attainment Summary
     dept_list = data.get('department_summary', [])
     if dept_list:
-        story.append(safe_paragraph("<b>3. Department-wise Attainment Summary (Academic Units Attainment Index)</b>", section_h2_style))
+        story.append(safe_paragraph("<b>4. Department-wise Attainment Summary (Academic Units Attainment Index)</b>", section_h2_style))
         dept_table_data = [
             [
                 safe_paragraph("Department / Academic Unit", th_style),
@@ -1134,8 +1173,8 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
         story.append(d_table)
         story.append(Spacer(1, 6))
 
-    # 5. Programme Outcomes (PO1 to PO12) Attainment Matrix
-    story.append(safe_paragraph("<b>4. Programme Outcomes (PO1–PO12) Institutional Attainment Matrix</b>", section_h2_style))
+    # 5A. Programme Outcomes (PO1 to PO12) Attainment Matrix
+    story.append(safe_paragraph("<b>5A. Programme Outcomes (PO1–PO12) Institutional Attainment Matrix</b>", section_h2_style))
     
     po_list = data.get('po_attainment_list', [])
     po_table_data = [
@@ -1177,15 +1216,60 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
     story.append(po_table)
     story.append(Spacer(1, 6))
 
+    # 5B. Department & Program Specific Outcomes (PSOs) Attainment Summary
+    pso_summary_list = data.get('pso_summary', [])
+    if pso_summary_list:
+        story.append(safe_paragraph("<b>5B. Department &amp; Program Specific Outcomes (PSOs) Attainment Summary</b>", section_h2_style))
+        pso_table_data = [
+            [
+                safe_paragraph("Sr.", th_style),
+                safe_paragraph("Department / Subject", th_style),
+                safe_paragraph("Class &amp; Semester", th_style),
+                safe_paragraph("PSO Code &amp; Outcome Title", th_style),
+                safe_paragraph("Students (Eval / Target)", th_style),
+                safe_paragraph("Attainment (%)", th_style),
+                safe_paragraph("NAAC Level", th_style)
+            ]
+        ]
+        sr_no = 1
+        for p in pso_summary_list[:50]:
+            p_lvl = p.get('naac_level', 1)
+            p_color = level_color_map.get(p_lvl, "#2563EB")
+            p_title = xml_clean(p.get('pso_title_en') or p.get('pso_title') or p.get('pso_code', ''))
+            p_desc = xml_clean(p.get('pso_description_en') or p.get('pso_description') or '')
+            p_desc_clean = (p_desc[:90] + '...') if len(p_desc) > 90 else p_desc
+            pso_table_data.append([
+                safe_paragraph(f"<center>{sr_no}</center>", cell_regular),
+                safe_paragraph(f"<b>{xml_clean(p.get('department_name', ''))}</b><br/><font size='6' color='#64748B'>{xml_clean(p.get('subject_name', ''))}</font>", cell_regular),
+                safe_paragraph(f"<b>{xml_clean(p.get('class_name', ''))}</b><br/><font size='6' color='#0369A1'>Sem-{xml_clean(str(p.get('semester', '')))}</font>", cell_regular),
+                safe_paragraph(f"<b>{xml_clean(p.get('pso_code', ''))}: {p_title}</b><br/><font size='6' color='#64748B'>{p_desc_clean}</font>", cell_regular),
+                safe_paragraph(f"<center>{p.get('students_evaluated', 0)} / {p.get('students_meeting_target', 0)}</center>", cell_regular),
+                safe_paragraph(f"<center><b>{p.get('attainment_pct', 0.0):.1f}%</b></center>", cell_bold),
+                safe_paragraph(f"<center><font color='{p_color}'><b>Level {p_lvl}</b></font></center>", cell_bold)
+            ])
+            sr_no += 1
+
+        pso_table = Table(pso_table_data, colWidths=[25, 105, 75, 178, 65, 45, 30])
+        pso_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#581C87")), # Deep Purple
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#581C87")),
+            ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor("#FAF5FF")]),
+        ]))
+        story.append(pso_table)
+        story.append(Spacer(1, 6))
+
     # 6. Course-wise & Faculty Breakdown
-    story.append(safe_paragraph("<b>5. Faculty & Course-wise Detailed Attainment Record</b>", section_h2_style))
+    story.append(safe_paragraph("<b>6. Faculty & Course-wise Detailed Attainment Record</b>", section_h2_style))
     
     teacher_breakdown = data.get('teacher_breakdown', [])
     t_table_data = [
         [
             safe_paragraph("Faculty Member", th_style),
             safe_paragraph("Subject & Course Details", th_style),
-            safe_paragraph("Class & Sem", th_style),
+            safe_paragraph("Class, Sem & Term", th_style),
             safe_paragraph("Students (Eval / Target)", th_style),
             safe_paragraph("Attainment (%)", th_style),
             safe_paragraph("Level", th_style)
@@ -1195,10 +1279,11 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
     for t in teacher_breakdown[:40]: # Cleanly paginate/limit display
         t_lvl = t.get('naac_level', 1)
         t_color = level_color_map.get(t_lvl, "#2563EB")
+        t_term = "Term I" if int(t.get('term_number', 1) or 1) == 1 else "Term II"
         t_table_data.append([
             safe_paragraph(f"<b>{xml_clean(t.get('teacher_name', ''))}</b><br/><font size='6' color='#64748B'>{xml_clean(t.get('designation', 'Faculty'))}</font>", cell_regular),
             safe_paragraph(f"<b>{xml_clean(t.get('course_name', ''))}</b> ({xml_clean(t.get('course_code', ''))})<br/><font size='6' color='#64748B'>{xml_clean(t.get('department_name', t.get('subject_name', '')))}</font>", cell_regular),
-            safe_paragraph(f"{xml_clean(t.get('class_name', ''))}", cell_regular),
+            safe_paragraph(f"<b>{xml_clean(t.get('class_name', ''))}</b><br/><font size='6' color='#0369A1'>Sem-{xml_clean(str(t.get('semester', '')))} ({t_term})</font>", cell_regular),
             safe_paragraph(f"<center>{t.get('students_evaluated', 0)} / {t.get('students_meeting_target', 0)}</center>", cell_regular),
             safe_paragraph(f"<center><b>{t.get('attainment_pct', 0.0):.1f}%</b></center>", cell_bold),
             safe_paragraph(f"<center><font color='{t_color}'><b>L-{t_lvl}</b></font></center>", cell_bold)
@@ -1214,7 +1299,7 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
             safe_paragraph("-", cell_regular)
         ])
 
-    t_table = Table(t_table_data, colWidths=[120, 153, 75, 85, 55, 35])
+    t_table = Table(t_table_data, colWidths=[115, 148, 85, 85, 55, 35])
     t_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#0F766E")), # Teal
         ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
@@ -1227,7 +1312,7 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
     story.append(Spacer(1, 6))
 
     # 7. Mathematical Methodology & NAAC Benchmarks (100% English)
-    story.append(safe_paragraph("<b>6. Mathematical Calculation Methodology & NAAC Attainment Framework</b>", section_h2_style))
+    story.append(safe_paragraph("<b>7. Mathematical Calculation Methodology & NAAC Attainment Framework</b>", section_h2_style))
     
     math_text = (
         "<b>1. Student Level Benchmark Threshold:</b><br/>"
@@ -1236,18 +1321,25 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
         "<b>2. Course Outcome (CO) Direct Attainment Formula:</b><br/>"
         "&nbsp;&nbsp;&nbsp;&nbsp;The attainment percentage for each course is computed as the proportion of evaluated students meeting the 60% benchmark:<br/>"
         "&nbsp;&nbsp;&nbsp;&nbsp;<b>Course Attainment (%) = [ (Number of Students Scoring ≥ 60% in CIE) / (Total Number of Students Evaluated) ] × 100</b><br/><br/>"
-        "<b>3. NAAC 3-Point Attainment Level Scale:</b><br/>"
+        "<b>3. Academic Term-wise (Odd/Even Semesters) & Annual Attainment Consolidation:</b><br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Term I Attainment (%):</b> Average direct attainment of all evaluated courses conducted in Odd Semesters (Semesters 1, 3, 5, 7).<br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Term II Attainment (%):</b> Average direct attainment of all evaluated courses conducted in Even Semesters (Semesters 2, 4, 6, 8).<br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Annual Institutional Attainment (%):</b> Weighted arithmetic mean across both terms for the complete academic year.<br/><br/>"
+        "<b>4. NAAC 3-Point Attainment Level Scale:</b><br/>"
         "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 3 (High Attainment):</b> ≥ 70% of evaluated students achieve the benchmark score (≥ 60% marks).<br/>"
         "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 2 (Medium Attainment):</b> 60% to 69.9% of evaluated students achieve the benchmark score.<br/>"
         "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 1 (Low Attainment):</b> 50% to 59.9% of evaluated students achieve the benchmark score.<br/>"
         "&nbsp;&nbsp;&nbsp;&nbsp;• <b>Level 0 (Not Attained):</b> &lt; 50% of evaluated students achieve the benchmark score.<br/><br/>"
-        "<b>4. Department-wise and Faculty Stream Attainment Aggregation:</b><br/>"
+        "<b>5. Department-wise and Faculty Stream Attainment Aggregation:</b><br/>"
         "&nbsp;&nbsp;&nbsp;&nbsp;The departmental attainment average is calculated as the arithmetic mean of attainment scores across all audited courses under the department:<br/>"
         "&nbsp;&nbsp;&nbsp;&nbsp;<b>Department Attainment (%) = [ Σ (Attainment % of Evaluated Department Courses) ] / (Number of Evaluated Courses)</b><br/><br/>"
-        "<b>5. Institutional Programme Outcome (PO) Attainment Matrix:</b><br/>"
+        "<b>6. Institutional Programme Outcome (PO) Attainment Matrix:</b><br/>"
         "&nbsp;&nbsp;&nbsp;&nbsp;For each Programme Outcome (PO1 to PO12), attainment is calculated by aggregating mapped Course Outcomes according to curriculum correlation weights:<br/>"
         "&nbsp;&nbsp;&nbsp;&nbsp;<b>PO Attainment (%) = [ Σ (Course Attainment % × Mapping Weight) ] / [ Σ (Mapping Weights) ]</b><br/><br/>"
-        "<b>6. Academic Audit Scope & Verification Coverage:</b><br/>"
+        "<b>7. Department & Program Specific Outcomes (PSOs) Attainment:</b><br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;Program Specific Outcomes (PSOs) evaluate domain-specific competencies for each academic department. Attainment is calculated by aggregating mapped Course Outcomes (COs) for the department:<br/>"
+        "&nbsp;&nbsp;&nbsp;&nbsp;<b>PSO Attainment (%) = [ Σ (Course Outcome Attainment % × PSO Mapping Weight) ] / [ Σ (PSO Mapping Weights) ]</b><br/><br/>"
+        "<b>8. Academic Audit Scope & Verification Coverage:</b><br/>"
         f"&nbsp;&nbsp;&nbsp;&nbsp;<b>Academic Audit Coverage = ({eval_courses} Evaluated Courses / {tot_courses} Registered Courses) × 100 = {coverage_pct:.1f}%</b>"
     )
     

@@ -7906,15 +7906,58 @@ def compute_college_naac_attainment_data(college_name, academic_year=None):
     overall_attainment_sum = 0.0
 
     po_course_map = {po['po_code']: [] for po in pos}
+    pso_course_map = {}
+    pso_summary = []
 
     dept_map = {}
     stream_map = {}
+
+    def parse_semester_term(sem_val):
+        s = str(sem_val or '').strip().upper()
+        m = re.search(r'\d+', s)
+        if m:
+            val = int(m.group())
+            if val % 2 == 1:
+                return 1, "Term I (Odd Semesters)"
+            else:
+                return 2, "Term II (Even Semesters)"
+        if any(k in s for k in ['VIII', 'VI', 'IV', 'II']):
+            return 2, "Term II (Even Semesters)"
+        if any(k in s for k in ['VII', 'V', 'III', 'I']):
+            return 1, "Term I (Odd Semesters)"
+        return 1, "Term I (Odd Semesters)"
+
+    term_map = {
+        1: {
+            'term_key': 'term_1',
+            'term_name': 'Term I (Odd Semesters: Sem 1, 3, 5, 7)',
+            'term_short': 'Term I (Odd Sem)',
+            'semesters_included': 'Sem 1, 3, 5, 7',
+            'total_courses': 0,
+            'evaluated_courses': 0,
+            'students_evaluated': 0,
+            'students_meeting_target': 0,
+            'attainment_sum': 0.0
+        },
+        2: {
+            'term_key': 'term_2',
+            'term_name': 'Term II (Even Semesters: Sem 2, 4, 6, 8)',
+            'term_short': 'Term II (Even Sem)',
+            'semesters_included': 'Sem 2, 4, 6, 8',
+            'total_courses': 0,
+            'evaluated_courses': 0,
+            'students_evaluated': 0,
+            'students_meeting_target': 0,
+            'attainment_sum': 0.0
+        }
+    }
 
     for sub in all_subjects:
         sub_id = sub['id']
         t_id = sub['teacher_id']
         raw_dept = (sub.get('teacher_department') or sub.get('subject_name') or 'General Studies').strip()
         raw_stream = (sub.get('teacher_faculty_stream') or 'General').strip()
+        t_num, t_desc = parse_semester_term(sub.get('semester'))
 
         # Clean display names
         dept_name = raw_dept
@@ -7922,6 +7965,9 @@ def compute_college_naac_attainment_data(college_name, academic_year=None):
             dept_name = f"Department of {dept_name}"
 
         stream_name = raw_stream
+
+        # Track term totals
+        term_map[t_num]['total_courses'] += 1
 
         # Initialize dept_map
         if dept_name not in dept_map:
@@ -7990,6 +8036,11 @@ def compute_college_naac_attainment_data(college_name, academic_year=None):
             stream_map[stream_name]['students_meeting_target'] += meeting_target
             stream_map[stream_name]['attainment_sum'] += attainment_pct
 
+            term_map[t_num]['evaluated_courses'] += 1
+            term_map[t_num]['students_evaluated'] += evaluated_count
+            term_map[t_num]['students_meeting_target'] += meeting_target
+            term_map[t_num]['attainment_sum'] += attainment_pct
+
             teacher_breakdown.append({
                 'teacher_name': sub['teacher_name'],
                 'designation': sub['teacher_designation'],
@@ -8000,6 +8051,8 @@ def compute_college_naac_attainment_data(college_name, academic_year=None):
                 'course_name': sub['course_name'],
                 'class_name': sub['class_name'],
                 'semester': sub['semester'],
+                'term_number': t_num,
+                'term_name': f"Term {t_num} (Sem-{sub['semester']})",
                 'students_evaluated': evaluated_count,
                 'students_meeting_target': meeting_target,
                 'attainment_pct': attainment_pct,
@@ -8024,16 +8077,101 @@ def compute_college_naac_attainment_data(college_name, academic_year=None):
                 'course_name': sub['course_name'],
                 'class_name': sub['class_name'],
                 'semester': sub['semester'],
+                'term_number': t_num,
+                'term_name': f"Term {t_num} (Sem-{sub['semester']})",
                 'students_evaluated': 0,
                 'students_meeting_target': 0,
                 'attainment_pct': 0.0,
                 'naac_level': 0
             })
 
+        # Collect PSOs for this subject & compute subject-wise PSO attainment
+        psos = database.get_all_program_specific_outcomes(sub_id, t_id)
+        if not psos:
+            psos = database.get_all_program_specific_outcomes(0)
+
+        for pso in psos:
+            p_code = pso['pso_code']
+            mapped_co_attainments = []
+            for co in cos:
+                w = float(co.get('po_mapping', {}).get(p_code, 0) or 0)
+                if w > 0 and evals:
+                    mapped_co_attainments.append(attainment_pct)
+            
+            pso_att = round(sum(mapped_co_attainments) / len(mapped_co_attainments), 1) if mapped_co_attainments else (attainment_pct if evals else 0.0)
+            pso_lvl = 3 if pso_att >= 70.0 else (2 if pso_att >= 60.0 else (1 if pso_att >= 50.0 else 0))
+
+            if evals:
+                if p_code not in pso_course_map:
+                    pso_course_map[p_code] = []
+                pso_course_map[p_code].append(pso_att)
+
+            pso_summary.append({
+                'department_name': dept_name,
+                'faculty_stream': stream_name,
+                'subject_name': sub['subject_name'] or sub['course_name'],
+                'course_code': sub['course_code'],
+                'course_name': sub['course_name'],
+                'class_name': sub['class_name'],
+                'semester': sub['semester'],
+                'pso_code': pso['pso_code'],
+                'pso_title': pso.get('pso_title_en') or pso.get('pso_title') or pso['pso_code'],
+                'pso_title_en': pso.get('pso_title_en') or pso.get('pso_title') or pso['pso_code'],
+                'pso_title_mr': pso.get('pso_title_mr') or pso.get('pso_title') or pso['pso_code'],
+                'pso_description': pso.get('pso_description_en') or pso.get('pso_description') or '',
+                'pso_description_en': pso.get('pso_description_en') or pso.get('pso_description') or '',
+                'pso_description_mr': pso.get('pso_description_mr') or pso.get('pso_description') or '',
+                'students_evaluated': evaluated_count if evals else 0,
+                'students_meeting_target': meeting_target if evals else 0,
+                'attainment_pct': pso_att,
+                'average_attainment_pct': pso_att,
+                'naac_level': pso_lvl
+            })
+
     total_courses_count = len(all_subjects)
     coverage_pct = round((evaluated_courses_count / total_courses_count * 100.0), 1) if total_courses_count > 0 else 0.0
     overall_attainment_pct = round((overall_attainment_sum / evaluated_courses_count), 1) if evaluated_courses_count > 0 else 0.0
     overall_lvl = 3 if overall_attainment_pct >= 70.0 else (2 if overall_attainment_pct >= 60.0 else (1 if overall_attainment_pct >= 50.0 else 0))
+
+    # Prepare term_summary list (Term I, Term II, Annual)
+    term_summary = []
+    for t_num in [1, 2]:
+        t_info = term_map[t_num]
+        t_eval = t_info['evaluated_courses']
+        t_avg = round(t_info['attainment_sum'] / t_eval, 1) if t_eval > 0 else 0.0
+        t_lvl = 3 if t_avg >= 70.0 else (2 if t_avg >= 60.0 else (1 if t_avg >= 50.0 else 0))
+        term_summary.append({
+            'term_id': f'term_{t_num}',
+            'term_number': t_num,
+            'term_name': t_info['term_name'],
+            'term_short': t_info['term_short'],
+            'semesters_included': t_info['semesters_included'],
+            'total_courses': t_info['total_courses'],
+            'evaluated_courses': t_eval,
+            'students_evaluated': t_info['students_evaluated'],
+            'evaluated_students': t_info['students_evaluated'],
+            'students_meeting_target': t_info['students_meeting_target'],
+            'attainment_pct': t_avg,
+            'average_attainment_pct': t_avg,
+            'naac_level': t_lvl
+        })
+
+    # Consolidated Annual Row
+    term_summary.append({
+        'term_id': 'annual',
+        'term_number': 'Annual',
+        'term_name': 'Annual Institutional Attainment (Consolidated Academic Year)',
+        'term_short': 'Annual (Consolidated)',
+        'semesters_included': 'All Semesters (Sem 1 to 8)',
+        'total_courses': total_courses_count,
+        'evaluated_courses': evaluated_courses_count,
+        'students_evaluated': len(total_students_evaluated_set),
+        'evaluated_students': len(total_students_evaluated_set),
+        'students_meeting_target': total_students_meeting_target,
+        'attainment_pct': overall_attainment_pct,
+        'average_attainment_pct': overall_attainment_pct,
+        'naac_level': overall_lvl
+    })
 
     # Prepare department_summary list
     department_summary = []
@@ -8099,6 +8237,35 @@ def compute_college_naac_attainment_data(college_name, academic_year=None):
             'naac_level': p_lvl
         })
 
+    # Consolidated PSO Attainment List (Universal / Default PSOs)
+    default_psos = database.get_all_program_specific_outcomes(0)
+    pso_attainment_list = []
+    for pso in default_psos:
+        p_code = pso['pso_code']
+        scores = pso_course_map.get(p_code, [])
+        if scores:
+            p_pct = round(sum(scores) / len(scores), 1)
+            p_lvl = 3 if p_pct >= 70.0 else (2 if p_pct >= 60.0 else (1 if p_pct >= 50.0 else 0))
+        elif evaluated_courses_count > 0:
+            p_pct = overall_attainment_pct
+            p_lvl = overall_lvl
+        else:
+            p_pct = 0.0
+            p_lvl = 0
+
+        pso_attainment_list.append({
+            'pso_code': p_code,
+            'pso_title': pso.get('pso_title_en') or pso['pso_title'],
+            'pso_title_en': pso.get('pso_title_en') or pso['pso_title'],
+            'pso_title_mr': pso.get('pso_title_mr') or pso['pso_title'],
+            'pso_description': pso.get('pso_description_en') or pso.get('pso_description', ''),
+            'pso_description_en': pso.get('pso_description_en') or pso.get('pso_description', ''),
+            'pso_description_mr': pso.get('pso_description_mr') or pso.get('pso_description', ''),
+            'mapped_courses_count': len(scores),
+            'attainment_pct': p_pct,
+            'naac_level': p_lvl
+        })
+
     conn.close()
 
     acad_yr = academic_year or (teachers[0].get('academic_year') or '2026–27')
@@ -8120,9 +8287,12 @@ def compute_college_naac_attainment_data(college_name, academic_year=None):
             'aishe_code': institutional_aishe or 'N/A',
             'college_code': institutional_college_code or 'N/A'
         },
+        'term_summary': term_summary,
         'stream_summary': stream_summary,
         'department_summary': department_summary,
         'po_attainment_list': po_attainment_list,
+        'pso_attainment_list': pso_attainment_list,
+        'pso_summary': pso_summary,
         'teacher_breakdown': teacher_breakdown
     }
 

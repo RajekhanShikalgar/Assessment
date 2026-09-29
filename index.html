@@ -5243,7 +5243,7 @@ body {
                 <i class="fa-solid fa-arrows-rotate"></i>
                 <span data-i18n="btn_admin_naac_load">अहवाल पहा</span>
               </button>
-              <button type="button" id="btn-admin-standardize-colleges" onclick="handleStandardizeColleges()" class="py-2.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 font-bold rounded-xl text-xs transition shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0" title="सर्व महाविद्यालयांची नावे एकत्र व प्रमाणित करा (Merge & Standardize College Names)">
+              <button type="button" id="btn-admin-standardize-colleges" onclick="handleStandardizeColleges()" class="py-2.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 font-bold rounded-xl text-xs transition shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0" title="सर्व महाविद्यालयांची नावे एकत्र व प्रमाणित करा">
                 <i class="fa-solid fa-wand-magic-sparkles text-purple-600"></i>
                 <span data-i18n="btn_admin_standardize_colleges">नावे एकत्र करा</span>
               </button>
@@ -5253,7 +5253,7 @@ body {
           <!-- Institutional Metadata & Unique Code Identifiers -->
           <div id="admin-naac-inst-meta-banner" class="hidden flex flex-wrap items-center justify-between gap-3 p-4 bg-gradient-to-r from-slate-900 to-emerald-950 text-white rounded-2xl shadow-sm">
             <div class="space-y-0.5">
-              <div class="text-[10px] uppercase font-bold tracking-widest text-emerald-400">Institutional NAAC Profile (अधिकृत संस्था माहिती)</div>
+              <div class="text-[10px] uppercase font-bold tracking-widest text-emerald-400">Institutional NAAC Profile</div>
               <h4 id="admin-naac-inst-name" class="text-base font-extrabold text-white">College Name</h4>
               <p id="admin-naac-inst-univ" class="text-xs text-slate-300">University Name</p>
             </div>
@@ -5314,12 +5314,41 @@ body {
           <!-- Institutional Evaluation Notice Container (shown when evaluations pending) -->
           <div id="admin-naac-eval-status-banner" class="hidden"></div>
 
-          <!-- Section 1: Faculty / Stream-wise Attainment Summary -->
+          <!-- Section 1: Academic Term-wise Attainment Summary (Term I, Term II & Annual) -->
+          <div class="space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-calendar-check text-emerald-600"></i>
+                <span data-i18n="admin_naac_term_title">सत्रनिहाय व वार्षिक साध्यता सारांश</span>
+              </h4>
+              <span class="text-[11px] text-slate-500 font-medium">Term I (Odd Semesters: 1, 3, 5, 7), Term II (Even Semesters: 2, 4, 6, 8) & Annual Consolidation</span>
+            </div>
+            <div class="overflow-x-auto border border-emerald-200 rounded-xl shadow-2xs">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-emerald-50 text-emerald-950 font-bold border-b border-emerald-200">
+                  <tr>
+                    <th class="p-3">शैक्षणिक सत्र (Academic Term / Scope)</th>
+                    <th class="p-3 w-40 text-center">समाविष्ट सेमिस्टर्स (Semesters)</th>
+                    <th class="p-3 w-28 text-center">एकूण कोर्सेस</th>
+                    <th class="p-3 w-28 text-center">मूल्यांकित कोर्सेस</th>
+                    <th class="p-3 w-28 text-center">मूल्यांकित विद्यार्थी</th>
+                    <th class="p-3 w-32 text-center">सरासरी साध्यता (%)</th>
+                    <th class="p-3 w-28 text-center">NAAC Level</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-naac-term-tbody" class="divide-y divide-slate-100 bg-white">
+                  <tr><td colspan="7" class="p-4 text-center text-slate-400">कृपया महाविद्यालय निवडा...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Section 2: Faculty / Stream-wise Attainment Summary -->
           <div class="space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                 <i class="fa-solid fa-layer-group text-blue-600"></i>
-                <span>विद्याशाखानिहाय साध्यता सरासरी (Faculty / Stream-wise Attainment)</span>
+                <span data-i18n="admin_naac_stream_title">विद्याशाखानिहाय साध्यता सरासरी</span>
               </h4>
               <span class="text-[11px] text-slate-500 font-medium">Faculty of Science & Tech, Commerce & Mgmt, Humanities / Arts</span>
             </div>
@@ -5349,7 +5378,7 @@ body {
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                 <i class="fa-solid fa-sitemap text-emerald-600"></i>
-                <span>विभागनिहाय साध्यता सरासरी (Department-wise Attainment)</span>
+                <span data-i18n="admin_naac_dept_title">विभागनिहाय साध्यता सरासरी</span>
               </h4>
               <span class="text-[11px] text-slate-500 font-medium">Department Average Attainment & NAAC Benchmark</span>
             </div>
@@ -5400,7 +5429,36 @@ body {
             </div>
           </div>
 
-          <!-- Section B: Course-wise Faculty Breakdown Table -->
+          <!-- Section B: Department & Program Specific Outcomes (PSOs) Matrix -->
+          <div class="space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-award text-purple-600"></i>
+                <span data-i18n="admin_naac_pso_matrix_title">विभाग व अभ्यासक्रमनिहाय विशिष्ट उद्दिष्टे (PSOs) साध्यता</span>
+              </h4>
+              <span class="text-[11px] text-purple-800 font-medium">Department &amp; Program Specific Outcomes (Criterion 2.6.2)</span>
+            </div>
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-purple-50 text-purple-950 font-bold border-b border-purple-200">
+                  <tr>
+                    <th class="p-3 w-16 text-center" data-i18n="th_sr_no">क्र.</th>
+                    <th class="p-3" data-i18n="th_department_subject">विभाग / विषय</th>
+                    <th class="p-3 w-28">वर्ग व सत्र</th>
+                    <th class="p-3" data-i18n="th_pso_title">PSO कोड व तपशील</th>
+                    <th class="p-3 w-32 text-center" data-i18n="th_admin_students_eval">मूल्यांकित विद्यार्थी</th>
+                    <th class="p-3 w-28 text-center" data-i18n="th_admin_attainment_pct">साध्यता (%)</th>
+                    <th class="p-3 w-24 text-center" data-i18n="th_admin_level">NAAC Level</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-naac-pso-tbody" class="divide-y divide-slate-100 bg-white">
+                  <tr><td colspan="7" class="p-6 text-center text-slate-400">कृपया महाविद्यालय निवडा...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Section C: Course-wise Faculty Breakdown Table -->
           <div class="space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
@@ -7412,7 +7470,7 @@ body {
 // =========================================================================
 const I18N = {
   en: {
-    "header_user_manual_btn": "User Manual (Guide)",
+    "header_user_manual_btn": "User Manual",
     "active_mappings_header": "Active Subject & Assessment Mappings",
     "admin_dash_sub": "Approve new teacher registrations, manage faculty codes, and oversee continuous internal evaluation records.",
     "admin_dash_title": "Institutional Administration & Faculty Registry",
@@ -7439,7 +7497,7 @@ const I18N = {
     "btn_do_import": "Import Students Data",
     "btn_download_matrix_csv": "Export Matrix CSV",
     "btn_download_archive_zip": "1-Click Semester ZIP Archive",
-    "lbl_duration_minutes": "Time Limit (Mins)",
+    "lbl_duration_minutes": "Time Limit (Minutes)",
     "stu_timer_title": "Timed Assessment",
     "stu_timer_sub": "Auto-submits on timer expiry.",
     "btn_edit_allocated_topics": "🎯 Allocated Topics List",
@@ -7453,7 +7511,7 @@ const I18N = {
     "ph_admin_pass": "••••••••",
     "admin_tab_database_sync": "Database & Backup",
     "admin_tab_database_sync_sub": "Drive Sync & Restore",
-    "copo_sec_title": "Course Outcomes (COs) & PO / PSO Articulation Matrix",
+    "copo_sec_title": "Course Outcomes & PO / PSO Articulation Matrix",
     "copo_sec_sub": "Configure COs, POs, and PSOs for each course, add/remove dynamic outcomes, and map correlation matrix on a 1–3 scale.",
     "lbl_select_copo_course": "Select Course / Paper for CO-PO Mapping:",
     "btn_add_co": "+ Add New CO",
@@ -7464,9 +7522,9 @@ const I18N = {
     "th_co_code": "CO Code",
     "th_co_statement": "Course Outcome Statement",
     "th_co_benchmark": "Target Benchmark (%)",
-    "btn_manage_popso": "⚙️ Manage POs & PSOs (Definitions & Descriptions)",
-    "th_manage_po_title": "Program Outcomes (POs) Directory",
-    "th_manage_pso_title": "Program Specific Outcomes (PSOs) Directory",
+    "btn_manage_popso": "⚙️ Manage Program Outcomes & Program Specific Outcomes",
+    "th_manage_po_title": "Program Outcomes Directory",
+    "th_manage_pso_title": "Program Specific Outcomes Directory",
     "btn_login_admin": "Login to Admin Portal",
     "btn_login_teacher": "Login to Teacher Portal",
     "btn_logout": "Logout",
@@ -7564,11 +7622,11 @@ const I18N = {
     "lbl_credits": "Credits *",
     "lbl_curr_pwd": "Current Password *",
     "lbl_current_password": "Current / Temp Password",
-    "lbl_custom_sub_title": "Custom Subject / Title (Other Class) *",
+    "lbl_custom_sub_title": "Custom Subject / Course Title *",
     "lbl_custom_subject": "Custom Subject Name",
     "lbl_deadline": "Submission Deadline",
     "lbl_designation": "Designation *",
-    "lbl_division": "Division (Optional)",
+    "lbl_division": "Division",
     "lbl_email": "Email Address *",
     "lbl_enable_mcq": "Create MCQ Question Paper",
     "lbl_filter_classes": "Filter by Classes:",
@@ -7578,7 +7636,7 @@ const I18N = {
     "lbl_main_topic_info": "Main Subject / General Topic",
     "lbl_marks_obtained": "Marks Obtained *",
     "lbl_max_marks": "Maximum Marks",
-    "lbl_mobile": "Mobile Number (WhatsApp) *",
+    "lbl_mobile": "Mobile Number *",
     "lbl_new_password": "Change / Reset Password",
     "lbl_new_pwd": "New Password *",
     "lbl_password": "Password *",
@@ -7609,10 +7667,10 @@ const I18N = {
     "lbl_student_mobile": "Mobile Number",
     "lbl_student_name": "Student Full Name *",
     "lbl_subject": "Subject *",
-    "lbl_teacher_code": "Teacher Code (User ID) *",
+    "lbl_teacher_code": "Teacher Code *",
     "lbl_teacher_credentials_heading": "Faculty Login Credentials & Security",
     "lbl_teacher_email": "Email or Teacher Code *",
-    "lbl_teacher_name": "Full Name (with Title) *",
+    "lbl_teacher_name": "Full Name *",
     "lbl_university": "University Name *",
     "m_add_student_title": "Add Single Student to Roster",
     "m_admin_edit_t_title": "Edit Faculty Profile",
@@ -7660,7 +7718,7 @@ const I18N = {
     "p4_desc": "Instant generation of NAAC / University compliant internal assessment marksheets and PDF records.",
     "p4_title": "Audit & Compliance Ready",
     "pending_approvals_title": "Pending Faculty Registration Approvals",
-    "ph_casm_title": "e.g. B.A. III Geography Home Assignment (Sem V)",
+    "ph_casm_title": "e.g. B.A. III Geography Home Assignment Sem 5",
     "ph_casm_topic": "e.g. Explain the physiographic divisions of India and coastal landforms in detail.",
     "ph_course_code": "e.g. GEO-301",
     "ph_course_name": "e.g. Physical Geography of India",
@@ -7794,7 +7852,7 @@ const I18N = {
     "ttab_courses_title": "Course & CIE Mapping",
     "ttab_eval_sub": "Grade Submissions & Matrix",
     "ttab_eval_title": "Evaluation & Marks",
-    "ttab_roster_sub": "Class Lists & Students (Add Here)",
+    "ttab_roster_sub": "Class Lists & Students",
     "ttab_roster_title": "Student Roster",
     "ttab_sessions_sub": "Create & Manage Tasks",
     "ttab_sessions_title": "Assessment Sessions",
@@ -7908,7 +7966,7 @@ const I18N = {
     "lbl_ann_target_class": "Target Class",
     "lbl_ann_title": "Notice Title / Subject",
     "lbl_ann_message": "Announcement Details / Message Body",
-    "lbl_ann_ref_url": "Reference Material Link / Video URL (Optional)",
+    "lbl_ann_ref_url": "Reference Material Link or Video URL",
     "stu_dash_title": "Student Assignment Dashboard",
     "stu_dash_sub": "All Mapped Continuous Internal Evaluations",
     "stu_tab_dashboard": "Dashboard",
@@ -8047,8 +8105,8 @@ const I18N = {
     "no_types_found": "No CIE assessment types available.",
     "ttab_obe_title": "Outcome Attainment",
     "ttab_obe_sub": "NAAC CO-PO Hub",
-    "obe_sec_title": "🎯 Outcome-Based Education (OBE) & NAAC Attainment Hub",
-    "obe_sec_sub": "Course Outcomes (COs), Program Outcomes (POs/PSOs) Correlation Matrix, and Live Attainment (NAAC Criterion 2.6).",
+    "obe_sec_title": "🎯 Outcome-Based Education & NAAC Attainment Hub",
+    "obe_sec_sub": "Course Outcomes, Program Outcomes Correlation Matrix, and Live Attainment (NAAC Criterion 2.6).",
     "btn_load_obe_template": "Load Standard Template",
     "lbl_obe_select_subject": "Select Subject & Paper *",
     "ph_obe_select_subject": "-- Select Subject --",
@@ -8057,7 +8115,7 @@ const I18N = {
     "obe_kpi_bench_lbl": "Target Benchmark",
     "obe_kpi_avg_lbl": "Avg CO Attainment",
     "obe_kpi_level_lbl": "NAAC Attainment Level",
-    "obe_sec1_title": "1. CO - PO & CO - PSO Correlation Matrix (1–3 Scale)",
+    "obe_sec1_title": "1. Course Outcomes & Program Outcomes Correlation Matrix",
     "obe_sec1_hint": "Click cells to toggle correlation: 3 = High, 2 = Medium, 1 = Low, - = None. Column averages are auto-calculated.",
     "btn_save_co_config": "Save CO & Matrix",
     "th_obe_co": "CO Code",
@@ -8069,15 +8127,18 @@ const I18N = {
     "th_obe_attainment": "Attainment (%)",
     "th_obe_naac_level": "NAAC Level",
     "th_obe_status": "Status",
-    "obe_sec3_title": "3. Program Outcomes (PO1 to PO12) Attainment",
-    "obe_sec3_pso_title": "4. Program Specific Outcomes (PSO1 to PSO4) Attainment",
+    "obe_sec3_title": "3. Program Outcomes Attainment (PO1 to PO12)",
+    "obe_sec3_pso_title": "4. Program Specific Outcomes Attainment (PSO1 to PSO4)",
     "th_obe_po_code": "Outcome Code",
-    "th_obe_po_title": "Program Outcome (PO) Title",
-    "th_obe_pso_title": "Program Specific Outcome (PSO) Title",
+    "th_obe_po_title": "Program Outcome Title",
+    "th_obe_pso_title": "Program Specific Outcome Title",
     "th_obe_mapped_cos": "Mapped COs",
     "admin_tab_naac_attainment": "NAAC Attainment Report",
     "admin_tab_naac_attainment_sub": "Criterion 2.6 Report & PDF",
-    "admin_naac_title": "Institutional NAAC Attainment Hub (Criterion 2.6)",
+    "admin_naac_title": "Institutional NAAC Attainment Hub",
+    "admin_naac_term_title": "Academic Term-wise Attainment Summary",
+    "admin_naac_stream_title": "Faculty / Stream-wise Attainment Summary",
+    "admin_naac_dept_title": "Department-wise Attainment Summary",
     "admin_naac_sub": "Comprehensive institution-wide OBE outcome attainment analytics, faculty contributions, and official audit documentation.",
     "btn_download_naac_pdf": "Download Official NAAC PDF",
     "lbl_admin_naac_college": "Select Affiliated College *",
@@ -8089,7 +8150,10 @@ const I18N = {
     "admin_kpi_audit_coverage": "NAAC Audit Coverage",
     "admin_kpi_overall_level": "Overall Attainment Level",
     "admin_naac_po_matrix_title": "PO1 to PO12 Institutional Attainment Matrix",
+    "admin_naac_pso_matrix_title": "Department & Program Specific Outcomes (PSOs) Attainment",
     "admin_naac_faculty_contrib_title": "Course-wise Faculty Contribution & Attainment Audit",
+    "th_department_subject": "Department / Discipline",
+    "th_pso_title": "PSO Code & Specific Outcome",
     "th_admin_faculty_name": "Participating Faculty & Designation",
     "th_admin_course": "Course & Class",
     "th_admin_students_eval": "Evaluated Students",
@@ -8098,35 +8162,35 @@ const I18N = {
     "th_admin_level": "NAAC Level"
   },
   mr: {
-    "header_user_manual_btn": "वापरकर्ता पुस्तिका (User Manual)",
+    "header_user_manual_btn": "वापरकर्ता पुस्तिका",
     "active_mappings_header": "सक्रिय विषय व मूल्यमापन रचना",
     "admin_dash_sub": "नवीन शिक्षक नोंदणी मंजूर करा, शिक्षक कोड व्यवस्थापित करा आणि सर्व मूल्यमापन अभिलेख तपासा.",
     "admin_dash_title": "महाविद्यालयीन प्रशासन व शिक्षक नोंदणी व्यवस्थापन",
     "admin_inst_desc": "हा कक्ष केवळ अधिकृत मुख्य प्रशासकांसाठी राखीव आहे. शिक्षक नोंदणी मंजुरी, विभाग व्यवस्थापन व अंतर्गत परीक्षा तपासणीचे अधिकार येथे उपलब्ध आहेत.",
-    "admin_inst_title": "प्रशासकीय सूचना (Admin Notice)",
+    "admin_inst_title": "प्रशासकीय सूचना",
     "admin_login_sub": "विभागप्रमुख, प्राचार्य व परीक्षा समन्वयकांसाठी पर्यवेक्षण मंच.",
     "admin_login_title": "प्रशासक लॉगिन",
     "app_title": "सातत्यपूर्ण अंतर्गत मूल्यमापन व्यवस्थापन प्रणाली (CIEMS)",
     "approved_teachers_title": "मंजूर व सक्रिय प्राध्यापक सूची",
-    "badge_ugc_nep": "यूजीसी व राष्ट्रीय शैक्षणिक धोरण (NEP 2020) सुसंगत",
+    "badge_ugc_nep": "यूजीसी व राष्ट्रीय शैक्षणिक धोरण सुसंगत",
     "btn_add_master_course": "+ नवीन वर्ग व कोर्स जोडा",
     "btn_add_mcq_q": "+ नवीन प्रश्न जोडा",
     "btn_add_student": "एक विद्यार्थी जोडा",
     "btn_auto_generate_pwd": "नवीन पासवर्ड आपोआप तयार करा",
-    "btn_bulk_import": "एकाचवेळी अनेक विद्यार्थी जोडा (Bulk)",
-    "btn_bulk_paste_mcq": "प्रश्नांची यादी पेस्ट करा (Bulk Import)",
+    "btn_bulk_import": "एकाचवेळी अनेक विद्यार्थी जोडा",
+    "btn_bulk_paste_mcq": "प्रश्नांची यादी पेस्ट करा",
     "btn_cancel": "रद्द करा",
     "btn_change_password": "पासवर्ड बदला",
     "btn_close": "बंद करा",
     "btn_copy_link": "विद्यार्थी लिंक कॉपी करा",
     "btn_create_session": "नवीन असाइनमेंट सत्र तयार करा",
     "btn_custom_class": "+ इतर / नवीन वर्ग",
-    "btn_disconnect": "बाहेर पडा (Disconnect)",
+    "btn_disconnect": "बाहेर पडा",
     "btn_do_import": "विद्यार्थी माहिती समाविष्ट करा",
     "btn_download_matrix_csv": "गुणपत्रिका CSV डाउनलोड करा",
     "btn_download_archive_zip": "१-क्लिक संपूर्ण सेमिस्टर ZIP संचिका",
     "lbl_duration_minutes": "वेळ मर्यादा (मिनिटे)",
-    "stu_timer_title": "परीक्षा कालावधी (Timed Assessment)",
+    "stu_timer_title": "परीक्षा कालावधी",
     "stu_timer_sub": "वेळ संपल्यावर उत्तर आपोआप सबमिट होईल.",
     "btn_edit_allocated_topics": "🎯 विद्यार्थीनिहाय वाटप यादी",
     "btn_forgot_password": "पासवर्ड विसरलात?",
@@ -8138,20 +8202,20 @@ const I18N = {
     "ph_admin_pass": "••••••••",
     "admin_tab_database_sync": "डेटाबेस व बॅकअप",
     "admin_tab_database_sync_sub": "ड्राइव्ह सिंक व डेटा सुरक्षितता",
-    "copo_sec_title": "Course Outcomes (COs) व PO / PSO मॅपिंग (OBE सहसंबंध तक्ता)",
+    "copo_sec_title": "अभ्यासक्रम निष्पत्ती व पदवी निष्पत्ती सहसंबंध रचना",
     "copo_sec_sub": "प्रत्येक विषयासाठी COs, POs व PSOs तयार करा, आवश्यकतेनुसार नवीन CO/PO जोडा किंवा हटवा, आणि १–३ स्केलवर परस्पर सहसंबंध मॅट्रिक्स निश्चित करा.",
     "lbl_select_copo_course": "CO-PO मॅपिंगसाठी कोर्स / पेपर निवडा:",
     "btn_add_co": "+ नवीन CO जोडा",
     "btn_add_po": "+ नवीन PO जोडा",
     "btn_add_pso": "+ नवीन PSO जोडा",
-    "btn_load_standard_template": "🪄 मानक साचा भरा (Standard Template)",
+    "btn_load_standard_template": "🪄 मानक साचा भरा",
     "btn_save_copo_matrix": "💾 CO, PO, PSO व मॅट्रिक्स जतन करा",
     "th_co_code": "CO कोड",
-    "th_co_statement": "अभ्यासक्रम फलनिष्पत्ती विधान (CO Statement)",
-    "th_co_benchmark": "उद्दिष्ट प्रमाण (Benchmark %)",
-    "btn_manage_popso": "⚙️ पदवी निष्पत्ती (POs) व विशेष निष्पत्ती (PSOs) व्याख्या व्यवस्थापित करा",
-    "th_manage_po_title": "पदवी कार्यक्रम निष्पत्ती (POs) यादी",
-    "th_manage_pso_title": "पदवी विशेष निष्पत्ती (PSOs) यादी",
+    "th_co_statement": "अभ्यासक्रम फलनिष्पत्ती विधान",
+    "th_co_benchmark": "उद्दिष्ट प्रमाण (%)",
+    "btn_manage_popso": "⚙️ पदवी निष्पत्ती व विशेष निष्पत्ती व्याख्या व्यवस्थापन",
+    "th_manage_po_title": "पदवी कार्यक्रम निष्पत्ती यादी",
+    "th_manage_pso_title": "पदवी विशेष निष्पत्ती यादी",
     "btn_login_admin": "प्रशासक कक्षात प्रवेश करा",
     "btn_login_teacher": "शिक्षक कक्षात प्रवेश करा",
     "btn_logout": "लॉगआउट",
@@ -8181,26 +8245,26 @@ const I18N = {
     "btn_view_prev_subs": "पूर्वी सादर केलेली उत्तरे पहा",
     "bulk_drawer_title": "विद्यार्थ्यांची यादी एकदम अपलोड करा",
     "bulk_import_header": "Excel / CSV हजेरी पट माहिती पेस्ट करा (स्वरूप: रोल नं | PRN | विद्यार्थ्याचे नाव | मोबाईल | ईमेल)",
-    "bulk_paste_hint": "टीप: आपण एक्सेल (Excel) मधील रकाने थेट कॉपी करून येथे पेस्ट करू शकता.",
+    "bulk_paste_hint": "टीप: आपण एक्सेल मधील रकाने थेट कॉपी करून येथे पेस्ट करू शकता.",
     "card_admin_desc": "महाविद्यालयीन स्तरावर शिक्षक नोंदणी मंजुरी, प्राध्यापक व्यवस्थापन व अंतर्गत परीक्षा अभिलेख तपासणी.",
-    "card_admin_title": "प्रशासक कक्ष (Admin Portal)",
+    "card_admin_title": "प्रशासक कक्ष",
     "card_guidelines_desc": "मूल्यमापन प्रकार, भारांश, विद्यापीठ परिपत्रके आणि सातत्यपूर्ण अंतर्गत मूल्यमापनाचे सर्व नियम वाचा.",
     "card_guidelines_title": "मूल्यमापन मार्गदर्शक तत्त्वे",
     "card_student_desc": "शिक्षक कोड व पीआरएन नोंदवून सक्रिय असाइनमेंट्स पहा, ऑनलाइन उत्तरे सादर करा व प्राप्त गुण तपासा.",
-    "card_student_title": "विद्यार्थी कक्ष (Student Portal)",
+    "card_student_title": "विद्यार्थी कक्ष",
     "card_teacher_desc": "वर्ग व्यवस्थापन, स्वाध्याय निर्मिती, मूल्यमापन प्रकार मॅपिंग, गुणदान आणि संपूर्ण गुणपत्रिका डाउनलोड करा.",
-    "card_teacher_title": "शिक्षक कक्ष (Teacher Portal)",
+    "card_teacher_title": "शिक्षक कक्ष",
     "change_pwd_help": "आपला सध्याचा पासवर्ड टाका व नवीन सुरक्षित पासवर्ड सेट करा (किमान ६ अक्षरे).",
-    "cie_header_tag": "| सातत्यपूर्ण अंतर्गत मूल्यमापन (CIE)",
+    "cie_header_tag": "| सातत्यपूर्ण अंतर्गत मूल्यमापन",
     "course_form_new_title": "नवीन वर्ग व कोर्स माहिती भरा",
     "course_panel_sub": "आपण शिकवत असलेल्या वर्गांची, सेमिस्टर, प्रोग्राम कोड, कोर्स कोड, क्रेडिट्स व अंतर्गत गुणांची मास्टर नोंदणी करा. यामुळे सर्व ठिकाणी ड्रॉपडाउनमध्ये एकवाक्यता राहील.",
-    "course_panel_title": "वर्ग व अभ्यासक्रम मास्टर रचना (Course & Class Master)",
+    "course_panel_title": "वर्ग व अभ्यासक्रम मास्टर रचना",
     "created_sessions_header": "सक्रिय मूल्यमापन सत्रे",
     "demo_creds": "डेमो लॉगिन माहिती",
-    "demo_login": "प्रात्यक्षिक लॉगिन माहिती (Demo)",
+    "demo_login": "प्रात्यक्षिक लॉगिन माहिती",
     "eval_panel_sub": "विद्यार्थ्यांची उत्तरे तपासा, फायली पहा, गुण व अभिप्राय नोंदवा आणि एकत्रित गुणपत्रिका तयार करा.",
     "eval_panel_title": "सादरीकरण मूल्यमापन व अंतिम CIE मॅट्रिक्स",
-    "faculty_portal_tag": "शिक्षक कक्ष (Faculty Portal)",
+    "faculty_portal_tag": "शिक्षक कक्ष",
     "forgot_pwd_help": "आपला नोंदणीकृत प्राध्यापक ईमेल प्रविष्ट करा. त्वरित लॉगिनसाठी नवीन सुरक्षित पासवर्ड आपोआप तयार होईल.",
     "gate_admin_badge": "१. प्रशासक प्रवेश",
     "gate_admin_desc": "महाविद्यालयीन व प्रशासकीय नियंत्रण कक्ष",
@@ -8230,7 +8294,7 @@ const I18N = {
     "header_sub_tagline": "<span class='block font-black text-slate-950 whitespace-nowrap'>अत्यंत सुलभ, पारदर्शक, जलद व १००% कागदविरहित</span><span class='block font-bold text-slate-800 whitespace-nowrap'>सातत्यपूर्ण अंतर्गत मूल्यमापन व्यवस्थापन प्रणाली.</span>",
     "hint_email_match": "हा ईमेल शिक्षकांनी रोस्टरमध्ये नोंदवलेल्या ईमेलशी जुळणे आवश्यक आहे.",
     "home_main_sub": "शैक्षणिक मार्गदर्शक तत्त्वे, मानक मूल्यमापन निकष, विद्यापीठ नियमावली आणि संरचित कार्यपद्धती.",
-    "home_main_title": "सातत्यपूर्ण अंतर्गत मूल्यमापन (CIE) मार्गदर्शक तत्त्वे व कार्यप्रणाली",
+    "home_main_title": "सातत्यपूर्ण अंतर्गत मूल्यमापन मार्गदर्शक तत्त्वे व कार्यप्रणाली",
     "invite_card_badge": "सक्रिय शिक्षक माहिती",
     "invite_card_sub": "हा शिक्षक कोड तुमच्या विद्यार्थ्यांना द्या जेणेकरून ते त्यांची उत्तरे थेट सादर करू शकतील.",
     "lbl_academic_year": "शैक्षणिक वर्ष *",
@@ -8246,62 +8310,62 @@ const I18N = {
     "lbl_confirm_pwd": "नवीन पासवर्ड पुन्हा प्रविष्ट करा *",
     "lbl_course_code": "विषय / पेपर कोड *",
     "lbl_course_title": "विषय / पेपर शीर्षक *",
-    "lbl_credits": "क्रेडिट्स (Credits) *",
+    "lbl_credits": "क्रेडिट्स *",
     "lbl_curr_pwd": "सध्याचा पासवर्ड *",
     "lbl_current_password": "सध्याचा पासवर्ड",
     "lbl_custom_sub_title": "इतर / नवीन विषयाचे नाव *",
     "lbl_custom_subject": "इतर विषयाचे नाव",
     "lbl_deadline": "सादर करण्याची अंतिम तारीख",
-    "lbl_designation": "पदनाम (Designation) *",
+    "lbl_designation": "पदनाम *",
     "lbl_division": "तुकडी (ऐच्छिक)",
     "lbl_email": "ईमेल पत्ता *",
-    "lbl_enable_mcq": "बहुपर्यायी प्रश्नपत्रिका तयार करा (MCQ)",
+    "lbl_enable_mcq": "बहुपर्यायी प्रश्नपत्रिका तयार करा",
     "lbl_filter_classes": "वर्गानुसार फिल्टर निवडा:",
-    "lbl_gender": "लिंग (Gender) *",
+    "lbl_gender": "लिंग *",
     "lbl_group_asm": "गट / सामूहिक असाइनमेंट",
     "lbl_internal_marks": "एकूण अंतर्गत गुण *",
     "lbl_main_topic_info": "मुख्य सामान्य विषय",
     "lbl_marks_obtained": "प्राप्त गुण *",
     "lbl_max_marks": "कमाल गुण",
-    "lbl_mobile": "मोबाईल नंबर (WhatsApp) *",
+    "lbl_mobile": "मोबाईल नंबर *",
     "lbl_new_password": "नवीन पासवर्ड सेट करा / बदला",
     "lbl_new_pwd": "नवीन पासवर्ड *",
     "lbl_password": "पासवर्ड *",
     "lbl_paste_roster_data": "हजेरी पट माहिती पेस्ट करा (प्रत्येक ओळीवर १ विद्यार्थी):",
-    "lbl_prn": "पीआरएन / नोंदणी क्रमांक (PRN) *",
-    "lbl_prn_enter": "विद्यार्थी पीआरएन / नोंदणी क्रमांक (PRN) *",
+    "lbl_prn": "पीआरएन / नोंदणी क्रमांक *",
+    "lbl_prn_enter": "विद्यार्थी पीआरएन / नोंदणी क्रमांक *",
     "lbl_prog_code": "प्रोग्राम कोड (उदा. BA)",
     "lbl_prog_name": "प्रोग्रामचे नाव (उदा. Bachelor of Arts)",
     "lbl_raw_student_data": "विद्यार्थी माहिती (RollNo, PRN, Name, Gender, Email, Mobile) *",
     "lbl_registered_email": "नोंदणीकृत प्राध्यापक ईमेल *",
     "lbl_remarks": "परीक्षक अभिप्राय व मार्गदर्शन:",
-    "lbl_repeater_chk": "पुनरावृत्ती / एटीकेटी विद्यार्थी (Repeater)",
+    "lbl_repeater_chk": "पुनरावृत्ती / एटीकेटी विद्यार्थी",
     "lbl_roll_no": "हजेरी क्रमांक *",
     "lbl_select_class": "वर्ग निवडा *",
     "lbl_select_mapped_subject": "मॅप केलेला विषय निवडा *",
     "lbl_select_mapped_type": "मॅप केलेला मूल्यमापन प्रकार निवडा *",
-    "lbl_select_master_course": "मास्टर कोर्समधून निवडा (Auto-Fill):",
+    "lbl_select_master_course": "मास्टर कोर्समधून निवडा:",
     "lbl_select_semester": "सेमिस्टर निवडा *",
-    "lbl_semester": "सत्र (Semester) *",
+    "lbl_semester": "सत्र *",
     "lbl_session_title": "असाइनमेंट शीर्षक *",
     "lbl_session_topic": "असाइनमेंट विषय / प्रश्न *",
-    "lbl_status": "स्थिती (Status)",
-    "lbl_stream": "शाखा (Stream) *",
+    "lbl_status": "स्थिती",
+    "lbl_stream": "विद्याशाखा *",
     "lbl_stu_typed_content": "ऑनलाइन उत्तर / अहवाल मजकूर *",
     "lbl_student_email": "विद्यार्थी ईमेल आयडी",
-    "lbl_student_email_verify": "नोंदणीकृत ईमेल आयडी (Email ID) *",
+    "lbl_student_email_verify": "नोंदणीकृत ईमेल आयडी *",
     "lbl_student_fullname": "विद्यार्थ्याचे पूर्ण नाव *",
     "lbl_student_mobile": "मोबाईल नंबर",
     "lbl_student_name": "विद्यार्थ्याचे पूर्ण नाव *",
-    "lbl_subject": "विषय (Subject) *",
-    "lbl_teacher_code": "शिक्षक कोड (User ID) *",
+    "lbl_subject": "विषय *",
+    "lbl_teacher_code": "शिक्षक कोड *",
     "lbl_teacher_credentials_heading": "शिक्षक लॉगिन आयडी व पासवर्ड व्यवस्थापन",
     "lbl_teacher_email": "ईमेल किंवा शिक्षक कोड *",
     "lbl_teacher_name": "पूर्ण नाव (पदवीसहित) *",
     "lbl_university": "विद्यापीठाचे नाव *",
     "m_add_student_title": "यादीमध्ये नवीन विद्यार्थी जोडा",
     "m_admin_edit_t_title": "शिक्षक प्रोफाइल संपादित करा",
-    "m_change_pwd_title": "शिक्षकांचा पासवर्ड बदला (Change Password)",
+    "m_change_pwd_title": "शिक्षकांचा पासवर्ड बदला",
     "m_edit_asm_title": "असाइनमेंट सत्र संपादित करा",
     "m_edit_student_title": "विद्यार्थी माहिती संपादित करा",
     "m_forgot_pwd_title": "प्राध्यापक पासवर्ड रीसेट करा",
@@ -8314,7 +8378,7 @@ const I18N = {
     "mapping_step2_header": "टप्पा २: अंतर्गत मूल्यमापन प्रकार निवडा व गुण ठरवा",
     "master_courses_table_title": "आपण तयार केलेल्या वर्ग व विषयांची यादी",
     "matrix_panel_sub": "सर्व विद्यार्थ्यांचे अंतर्गत मूल्यमापन प्रकारानिहाय एकत्रित गुणांचे विवरण.",
-    "matrix_panel_title": "सातत्यपूर्ण अंतर्गत मूल्यमापन अंतिम गुणपत्रिका (Master Matrix)",
+    "matrix_panel_title": "सातत्यपूर्ण अंतर्गत मूल्यमापन अंतिम गुणपत्रिका",
     "mcq_auto_grade_notice": "विद्यार्थ्यांचे पेपर आपोआप तपासून गुण तात्काळ गुणतक्त्यात नोंदवले जातील.",
     "mcq_builder_sub": "प्रश्न आणि ४ पर्याय लिहा, तसेच योग्य उत्तराच्या गोल हिरव्या बटणावर टिक करा.",
     "mcq_builder_title": "MCQ प्रश्नपत्रिका रचना",
@@ -8328,7 +8392,7 @@ const I18N = {
     "obj1_title": "सातत्यपूर्ण व सहयोगात्मक मूल्यमापन",
     "obj2_desc": "विद्यार्थी ओळख पडताळणी, डिजिटल नोंद, देवनागरी युनिकोड PDF निर्मिती आणि शिक्षकांचे मार्गदर्शनपर अभिप्राय.",
     "obj2_title": "१००% पारदर्शकता व ऑडिट-सज्ज",
-    "obj3_desc": "प्रत्यक्ष कागदविरहित उत्तर लेखन, बहुपर्यायी प्रश्नांचे (MCQ) स्वयंचलित गुणदान आणि तात्काळ एकत्रित गुणतक्ता.",
+    "obj3_desc": "प्रत्यक्ष कागदविरहित उत्तर लेखन, बहुपर्यायी प्रश्नांचे स्वयंचलित गुणदान आणि तात्काळ एकत्रित गुणतक्ता.",
     "obj3_title": "कागदविरहित व स्वयंचलित निकाल",
     "obj4_desc": "विविध प्रमाणित परीक्षा पद्धती, व्हिडिओ/नोट्स अभ्यास साहित्य, क्युआर कोड सूचना फलक आणि ईमेल प्रसारण.",
     "obj4_title": "बहुआयामी मूल्यमापन व अभ्यास साहित्य",
@@ -8342,7 +8406,7 @@ const I18N = {
     "p2_title": "पारदर्शक व वस्तुनिष्ठ निकष",
     "p3_desc": "विशिष्ट शिक्षक कोड, अचूक विद्यार्थी नोंदणी पडताळणी आणि डिजिटल स्वाक्षरीयुक्त सुरक्षित रेकॉर्ड्स.",
     "p3_title": "गोपनीय व सुरक्षित अभिलेख",
-    "p4_desc": "नॅक (NAAC) व विद्यापीठ नियमावलीनुसार क्षणात तयार होणाऱ्या अधिकृत गुणपत्रिका व पीडीएफ दस्तऐवज.",
+    "p4_desc": "नॅक व विद्यापीठ नियमावलीनुसार क्षणात तयार होणाऱ्या अधिकृत गुणपत्रिका व पीडीएफ दस्तऐवज.",
     "p4_title": "नॅक व विद्यापीठ सुसंगत",
     "pending_approvals_title": "मंजुरीच्या प्रतीक्षेत असलेली शिक्षक नोंदणी",
     "ph_casm_title": "उदा. बी.ए. ३ भूगोल गृहस्वाध्याय (सत्र ५)",
@@ -8370,7 +8434,7 @@ const I18N = {
     "reg_approval_notice": "नोंदणीनंतर प्रशासकीय मंजुरी आवश्यक आहे, त्यानंतरच असाइनमेंट निर्मितीसाठी शिक्षक कोड सक्रिय होईल.",
     "roster_panel_sub": "मूल्यमापनासाठी वर्ग यादी, विद्यार्थ्यांचे हजेरी क्रमांक आणि पीआरएन व्यवस्थापित करा.",
     "roster_panel_title": "वर्गनिहाय विद्यार्थी यादी व्यवस्थापन",
-    "s_inst_1": "विषय शिक्षकांनी दिलेला अधिकृत 'शिक्षक कोड' (Teacher Code) अचूक टाका.",
+    "s_inst_1": "विषय शिक्षकांनी दिलेला अधिकृत शिक्षक कोड अचूक टाका.",
     "s_inst_2": "आपला अधिकृत PRN नंबर व शिक्षकांकडे नोंदणी असलेला ईमेल आयडी प्रविष्ट करा.",
     "s_inst_3": "माहिती जुळल्यानंतर थेट अंतर्गत परीक्षा / स्वाध्याय कक्ष उघडून उत्तरे वेळेत सादर करता येतील.",
     "sessions_panel_sub": "स्वाध्याय, सेमिनार, प्रात्यक्षिक किंवा प्रकल्प विषय तयार करा आणि अंतिम तारीख निश्चित करा.",
@@ -8387,10 +8451,10 @@ const I18N = {
     "step4_badge": "टप्पा ४",
     "step4_desc": "शिक्षक विद्यार्थ्यांच्या उत्तरांची तपासणी करून गुण व अभिप्राय देतात आणि विद्यापीठ सुसंगत अंतिम गुणपत्रिका व पीडीएफ तयार करतात.",
     "step4_title": "४. गुणदान, मूल्यमापन व प्रमाणित अभिलेख",
-    "stu_connect_sub": "तुमच्या विषयाच्या शिक्षकांचा कोड आणि तुमचा पीआरएन (PRN) क्रमांक टाकून सक्रिय असाइनमेंट्स सुरू करा.",
-    "stu_connect_title": "विद्यार्थी परीक्षा व स्वाध्याय कक्ष (Student Room)",
+    "stu_connect_sub": "तुमच्या विषयाच्या शिक्षकांचा कोड आणि तुमचा पीआरएन क्रमांक टाकून सक्रिय असाइनमेंट्स सुरू करा.",
+    "stu_connect_title": "विद्यार्थी परीक्षा व स्वाध्याय कक्ष",
     "stu_declaration": "मी याद्वारे घोषित करतो/करते की हे असाइनमेंट माझे स्वतःचे मूळ शैक्षणिक काम आहे.",
-    "stu_mcq_exam_title": "ऑनलाइन बहुपर्यायी प्रश्न चाचणी (MCQ Exam)",
+    "stu_mcq_exam_title": "ऑनलाइन बहुपर्यायी प्रश्न चाचणी",
     "stu_step1_title": "१. सक्रिय असाइनमेंट / चाचणी निवडा",
     "stu_step2_title": "२. तुमचे उत्तर तयार करा व सादर करा",
     "student_inst_badge": "सूचना",
@@ -8415,7 +8479,7 @@ const I18N = {
     "svc6_title": "देवनागरी PDF व नॅक सज्ज",
     "swf_1_desc": "विद्यार्थी अधिकृत PRN नंबर आणि नोंदणीकृत ईमेल आयडी टाकून शिक्षकांशी थेट जोडले जातात.",
     "swf_1_title": "सुरक्षित लॉगिन व ओळख पडताळणी",
-    "swf_2_desc": "आपल्या वर्गाचे चालू स्वाध्याय, स्वतंत्र विषय, MCQ चाचण्या, संदर्भ साहित्य (Drive/YouTube) व सूचना पाहणे.",
+    "swf_2_desc": "आपल्या वर्गाचे चालू स्वाध्याय, स्वतंत्र विषय, चाचण्या, संदर्भ साहित्य व सूचना पाहणे.",
     "swf_2_title": "सक्रिय स्वाध्याय, अभ्यास साहित्य व सूचना",
     "swf_3_desc": "विद्यार्थी एडिटरमध्ये उत्तरे टाइप करून सादर करतात किंवा वेळेत ऑनलाइन MCQ चाचणी सोडवतात.",
     "swf_3_title": "थेट ऑनलाइन उत्तर लेखन व MCQ चाचणी",
@@ -8433,7 +8497,7 @@ const I18N = {
     "teacher_inst_badge": "सूचना",
     "teacher_inst_title": "शिक्षकांसाठी मार्गदर्शक सूचना",
     "teacher_login_sub": "महाविद्यालयीन प्राध्यापकांसाठी वर्ग, असाइनमेंट्स व सातत्यपूर्ण अंतर्गत मूल्यमापन व्यवस्थापन मंच.",
-    "teacher_login_title": "शिक्षक लॉगिन (Teacher Portal)",
+    "teacher_login_title": "शिक्षक लॉगिन",
     "th_academic_year": "शैक्षणिक वर्ष",
     "th_actions": "क्रिया",
     "th_category": "प्रवर्ग",
@@ -8459,10 +8523,10 @@ const I18N = {
     "th_marks": "दिलेले गुण",
     "th_name": "विद्यार्थ्याचे नाव",
     "th_pdf_print": "अधिकृत PDF / प्रिंट",
-    "th_prn": "पीआरएन (PRN) / नोंदणी क्र.",
+    "th_prn": "पीआरएन / नोंदणी क्र.",
     "th_prog_stream": "पदवी व शाखा",
     "th_roll": "हजेरी क्र.",
-    "th_roll_no": "हजेरी क्र. (Roll No)",
+    "th_roll_no": "हजेरी क्र.",
     "th_session_title": "असाइनमेंट शीर्षक",
     "th_status": "स्थिती",
     "th_stream_subject": "शाखा व विषय",
@@ -8498,7 +8562,7 @@ const I18N = {
     "wf_title": "सातत्यपूर्ण अंतर्गत मूल्यमापनाची टप्पेनिहाय कार्यप्रणाली",
     "ttab_dashboard_title": "डॅशबोर्ड विहंगावलोकन",
     "ttab_dashboard_sub": "सांख्यिकी व माहिती",
-    "teacher_dash_overview_title": "शिक्षक कार्यप्रदर्शन व सांख्यिकी (Teacher Overview)",
+    "teacher_dash_overview_title": "शिक्षक कार्यप्रदर्शन व सांख्यिकी",
     "teacher_dash_overview_sub": "अभ्यासक्रम, नोंदणीकृत विद्यार्थी, सक्रिय मूल्यमापन सत्रे आणि पेपर तपासणी प्रगतीचा थेट सारांश.",
     "btn_refresh_stats": "रिफ्रेश माहिती",
     "stat_total_courses": "वर्ग व अभ्यासक्रम",
@@ -8509,8 +8573,8 @@ const I18N = {
     "stat_pending_eval": "तपासणी बाकी",
     "eval_progress_title": "मूल्यमापन पूर्णता दर",
     "btn_open_evaluation": "गुण नोंदवा",
-    "quick_actions_title": "जलद शैक्षणिक कृती (Quick Actions)",
-    "class_breakdown_title": "वर्गनिहाय विहंगावलोकन (Class Breakdown)",
+    "quick_actions_title": "जलद शैक्षणिक कृती",
+    "class_breakdown_title": "वर्गनिहाय विहंगावलोकन",
     "recent_assessments_title": "अलीकडील मूल्यमापन सत्रे",
     "recent_submissions_title": "अलीकडील प्राप्त विद्यार्थी उत्तरे",
     "th_class_sem": "वर्ग व सेमिस्टर",
@@ -8524,7 +8588,7 @@ const I18N = {
     "admin_tab_pending_sub": "शिक्षक पडताळणी अर्ज",
     "admin_tab_approved": "मंजूर शिक्षक यादी",
     "admin_tab_approved_sub": "कार्यरत प्राध्यापक डिरेक्टरी",
-    "admin_summary_title": "प्रणाली सांख्यिकी व सर्वसमावेशक माहिती (Analytics)",
+    "admin_summary_title": "प्रणाली सांख्यिकी व सर्वसमावेशक माहिती",
     "admin_summary_sub": "नोंदणीकृत प्राध्यापक, विद्यार्थी, अंतर्गत चाचण्या आणि मूल्यमापनाची एकत्रित सांख्यिकी.",
     "stat_approved_teachers": "मंजूर प्राध्यापक",
     "stat_pending_teachers": "प्रलंबित विनंत्या",
@@ -8574,26 +8638,26 @@ const I18N = {
     "ttab_search_sub": "सर्व वर्गांतून शोध",
     "ttab_announcements_title": "सूचना व प्रसारण",
     "ttab_announcements_sub": "ईमेल व नोटीस बोर्ड",
-    "teacher_student_search_title": "विद्यार्थी शोध व शैक्षणिक तपशील (Student Search)",
+    "teacher_student_search_title": "विद्यार्थी शोध व शैक्षणिक तपशील",
     "teacher_student_search_sub": "हजेरीपटातील विद्यार्थी नाव, PRN, रोल नंबर, ईमेल किंवा मोबाईलने शोधा.",
-    "teacher_announcements_title": "महत्त्वाच्या सूचना व ईमेल प्रसारण (Teacher Announcements)",
+    "teacher_announcements_title": "महत्त्वाच्या सूचना व ईमेल प्रसारण",
     "teacher_announcements_sub": "वर्गासाठी महत्त्वाची सूचना जाहीर करा; संबंधित सर्व विद्यार्थ्यांना थेट ईमेल पाठवला जाईल.",
     "admin_tab_faculty_search": "प्राध्यापक शोध",
     "admin_tab_faculty_search_sub": "महाविद्यालयीन प्राध्यापक डिरेक्टरी",
     "admin_tab_announcements": "न्यूज व परिपत्रके",
     "admin_tab_announcements_sub": "शिक्षकांसाठी सूचना",
-    "admin_faculty_search_title": "प्राध्यापक शोध व महाविद्यालयीन डिरेक्टरी (Faculty Search)",
+    "admin_faculty_search_title": "प्राध्यापक शोध व महाविद्यालयीन डिरेक्टरी",
     "admin_faculty_search_sub": "सर्व विद्याशाखा, विषय व महाविद्यालयांमधील प्राध्यापकांची माहिती व आकडेवारी शोधा.",
-    "lbl_num_faculty": "एकूण शिक्षक संख्या (Number of Faculty):",
+    "lbl_num_faculty": "एकूण शिक्षक संख्या:",
     "lbl_enable_study_materials": "📚 अभ्यास साहित्य, नोट्स व संदर्भ व्हिडिओ लिंक जोडा",
     "study_materials_builder_title": "अभ्यास साहित्य, नोट्स व संदर्भ व्हिडिओ",
     "stu_materials_title": "अभ्यास साहित्य व संदर्भ व्हिडिओ",
     "btn_add_material_link": "+ संदर्भ लिंक जोडा",
     "btn_broadcast_announcement": "प्रसारित करा व ईमेल पाठवा",
     "published_notices_header": "प्रसारित केलेल्या सूचना व ईमेल लॉग",
-    "lbl_ann_target_class": "लक्षित वर्ग (Target Class)",
-    "lbl_ann_title": "सूचनेचे शीर्षक (Title)",
-    "lbl_ann_message": "सविस्तर सूचना मजकूर (Message)",
+    "lbl_ann_target_class": "लक्षित वर्ग",
+    "lbl_ann_title": "सूचनेचे शीर्षक",
+    "lbl_ann_message": "सविस्तर सूचना मजकूर",
     "lbl_ann_ref_url": "संदर्भ साहित्य किंवा व्हिडिओ लिंक (ऐच्छिक)",
     "stu_dash_title": "विद्यार्थी असाइनमेंट डॅशबोर्ड",
     "stu_dash_sub": "सर्व अंतर्गत चाचण्या व स्वाध्याय यादी",
@@ -8664,7 +8728,7 @@ const I18N = {
     "btn_extend_validity": "मुदत वाढवा",
     "m_extend_validity_title": "शैक्षणिक वर्ष मुदतवाढ विनंती",
     "lbl_validity_cycle": "प्रमाणित शैक्षणिक चक्र: १ जून ते ३१ मे",
-    "extend_validity_expl": "शिक्षक खात्याची मुदत दरवर्षी एका शैक्षणिक वर्षासाठी (१ जून ते ३१ मे) असते. पुढील शैक्षणिक वर्षासाठी मुदतवाढ विनंती प्रशासकांकडे (Admin) मंजुरीसाठी पाठवली जाईल.",
+    "extend_validity_expl": "शिक्षक खात्याची मुदत दरवर्षी एका शैक्षणिक वर्षासाठी (१ जून ते ३१ मे) असते. पुढील शैक्षणिक वर्षासाठी मुदतवाढ विनंती प्रशासकांकडे मंजुरीसाठी पाठवली जाईल.",
     "lbl_curr_validity": "सध्याची मुदत",
     "lbl_req_year": "पुढील शैक्षणिक वर्ष",
     "btn_send_extension_req": "मुदतवाढ विनंती पाठवा",
@@ -8686,7 +8750,7 @@ const I18N = {
     "mm_lbl_stream_name": "विद्याशाखेचे नाव *",
     "mm_lbl_display_order": "प्रदर्शन क्रम",
     "btn_add_stream": "विद्याशाखा जोडा",
-    "mm_th_id": "क्रमांक (ID)",
+    "mm_th_id": "क्रमांक",
     "mm_th_stream_name": "विद्याशाखेचे नाव",
     "mm_th_order": "क्रम",
     "mm_th_status": "स्थिती",
@@ -8733,8 +8797,8 @@ const I18N = {
     "no_types_found": "कोणताही मूल्यमापन घटक उपलब्ध नाही.",
     "ttab_obe_title": "फलनिष्पत्ती साध्यता",
     "ttab_obe_sub": "NAAC CO-PO साध्यता",
-    "obe_sec_title": "🎯 फलनिष्पत्ती आधारित शिक्षण (OBE) व NAAC साध्यता केंद्र",
-    "obe_sec_sub": "अभ्यासक्रम उद्दिष्टे (COs), पदवी उद्दिष्टे (POs/PSOs) सहसंबंध मॅट्रिक्स आणि विद्यार्थ्यांची प्रत्यक्ष शैक्षणिक साध्यता (NAAC निकष २.६).",
+    "obe_sec_title": "🎯 फलनिष्पत्ती आधारित शिक्षण व NAAC साध्यता केंद्र",
+    "obe_sec_sub": "अभ्यासक्रम उद्दिष्टे, पदवी उद्दिष्टे सहसंबंध मॅट्रिक्स आणि विद्यार्थ्यांची प्रत्यक्ष शैक्षणिक साध्यता (NAAC निकष २.६).",
     "btn_load_obe_template": "डीफॉल्ट COs व मॅट्रिक्स लोड करा",
     "lbl_obe_select_subject": "विषय व पेपर निवडा *",
     "ph_obe_select_subject": "-- विषय निवडा --",
@@ -8743,11 +8807,11 @@ const I18N = {
     "obe_kpi_bench_lbl": "उद्दिष्ट बेंचमार्क",
     "obe_kpi_avg_lbl": "सरासरी CO साध्यता",
     "obe_kpi_level_lbl": "NAAC साध्यता पातळी",
-    "obe_sec1_title": "१. अभ्यासक्रम निष्पत्ती (CO) व PO/PSO सहसंबंध मॅट्रिक्स (१ ते ३ गुणांकन)",
+    "obe_sec1_title": "१. अभ्यासक्रम निष्पत्ती व पदवी निष्पत्ती सहसंबंध मॅट्रिक्स",
     "obe_sec1_hint": "प्रत्येक चौकटीवर क्लिक करून सहसंबंध बदला: ३ = उच्च, २ = मध्यम, १ = प्राथमिक, - = निरंक. स्तंभांची सरासरी आपोआप निघते.",
     "btn_save_co_config": "CO व मॅट्रिक्स सेव्ह करा",
     "th_obe_co": "CO कोड",
-    "th_obe_co_statement": "अभ्यासक्रम उद्दिष्ट विधान (CO Statement)",
+    "th_obe_co_statement": "अभ्यासक्रम उद्दिष्ट विधान",
     "th_obe_benchmark": "बेंचमार्क (%)",
     "obe_sec2_title": "२. प्रत्यक्ष विद्यार्थी मूल्यमापन साध्यता अहवाल",
     "th_obe_assessments": "चाचण्या",
@@ -8758,8 +8822,8 @@ const I18N = {
     "obe_sec3_title": "३. पदवी कार्यक्रम निष्पत्ती साध्यता (PO1 ते PO12)",
     "obe_sec3_pso_title": "४. पदवी विशेष निष्पत्ती साध्यता (PSO1 ते PSO4)",
     "th_obe_po_code": "आउटकम कोड",
-    "th_obe_po_title": "पदवी उद्दिष्ट (PO) शीर्षक",
-    "th_obe_pso_title": "विशेष पदवी उद्दिष्ट (PSO) शीर्षक",
+    "th_obe_po_title": "पदवी उद्दिष्ट शीर्षक",
+    "th_obe_pso_title": "विशेष पदवी उद्दिष्ट शीर्षक",
     "th_obe_mapped_cos": "संलग्न COs",
     "admin_tab_naac_attainment": "NAAC साध्यता अहवाल",
     "admin_tab_naac_attainment_sub": "निकष २.६ अहवाल व PDF",
@@ -8775,7 +8839,10 @@ const I18N = {
     "admin_kpi_audit_coverage": "NAAC ऑडिट कव्हरेज",
     "admin_kpi_overall_level": "संस्थात्मक सरासरी पातळी",
     "admin_naac_po_matrix_title": "PO1 ते PO12 संस्थात्मक साध्यता मॅट्रिक्स",
+    "admin_naac_pso_matrix_title": "विभाग व अभ्यासक्रमनिहाय विशिष्ट उद्दिष्टे (PSOs) साध्यता",
     "admin_naac_faculty_contrib_title": "विषयनिहाय प्राध्यापक योगदान व साध्यता पडताळणी तक्ता",
+    "th_department_subject": "विभाग व विषय",
+    "th_pso_title": "PSO कोड व उद्दिष्ट तपशील",
     "th_admin_faculty_name": "सहभागी प्राध्यापक व पदनाम",
     "th_admin_course": "विषय, पेपर व वर्ग",
     "th_admin_students_eval": "परीक्षित विद्यार्थी",
@@ -9783,7 +9850,7 @@ async function handleStudentVerify(e) {
   }
 
   if (!prn) {
-    showToast('कृपया आपला PRN नंबर प्रविष्ट करा. (Please enter your Student PRN / Enrollment Number)', 'error');
+    showToast(currentLanguage === 'mr' ? 'कृपया आपला PRN नंबर प्रविष्ट करा.' : 'Please enter your Student PRN / Enrollment Number.', 'error');
     return;
   }
 
@@ -10213,7 +10280,7 @@ function renderStudentAssignments(filter = 'all') {
           ${isReopened ? `
             <button type="button" onclick="openStudentAssignment(${asm.id})" class="w-full btn-3d-amber bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs shadow flex items-center justify-center gap-2 transition cursor-pointer">
               <i class="fa-solid fa-rotate-right text-white"></i>
-              <span>${isMr ? 'सुधारणा करून पुन्हा सादर करा (Revise & Resubmit)' : 'Revise & Resubmit'}</span>
+              <span>${isMr ? 'सुधारणा करून पुन्हा सादर करा' : 'Revise & Resubmit'}</span>
             </button>
           ` : isSubmitted ? `
             <div class="flex items-center justify-between w-full">
@@ -11198,7 +11265,7 @@ async function handleTeacherRegisterSubmit(e) {
   const collegeCode = document.getElementById('reg-college-code') ? document.getElementById('reg-college-code').value.trim() : '';
 
   if (!aisheCode && !collegeCode) {
-    showToast('AISHE Code किंवा College / Affiliation Code यांपैकी किमान एक कोड भरणे अनिवार्य आहे! (At least one code required for NAAC mapping)', 'error');
+    showToast(currentLanguage === 'mr' ? 'AISHE कोड किंवा संलग्नता / महाविद्यालय कोड यांपैकी किमान एक कोड भरणे अनिवार्य आहे!' : 'At least one AISHE Code or College / Affiliation Code is required for NAAC mapping!', 'error');
     if (document.getElementById('reg-aishe-code')) document.getElementById('reg-aishe-code').focus();
     return;
   }
@@ -11483,8 +11550,12 @@ function quickMapCOPOForCourse(courseId) {
   const picker = document.getElementById('copo-select-course');
   if (picker) {
     picker.value = courseId;
-    onSelectCourseForCOPOMapping(courseId);
   }
+  const obeSelect = document.getElementById('obe-subject-selector') || document.getElementById('obe-subject-select');
+  if (obeSelect) {
+    obeSelect.value = courseId;
+  }
+  onSelectCourseForCOPOMapping(courseId);
   setTimeout(() => {
     document.getElementById('course-copo-mapping-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 100);
@@ -11503,6 +11574,10 @@ async function onSelectCourseForCOPOMapping(courseId) {
     return;
   }
   currentSelectedCourseId = parseInt(courseId);
+  const obeSelect = document.getElementById('obe-subject-selector') || document.getElementById('obe-subject-select');
+  if (obeSelect) {
+    obeSelect.value = courseId;
+  }
   await loadCourseCOPOMatrix(currentSelectedCourseId);
 }
 
@@ -12070,7 +12145,7 @@ async function saveCourseCOPOMatrix() {
   const picker = document.getElementById('copo-select-course');
   const courseId = picker ? picker.value : currentSelectedCourseId;
   if (!courseId) {
-    showToast(currentLanguage === 'mr' ? 'कृपया प्रथम वरून विषय (Course) निवडा.' : 'Please select a course first.', 'warning');
+    showToast(currentLanguage === 'mr' ? 'कृपया प्रथम वरून विषय निवडा.' : 'Please select a course first.', 'warning');
     return;
   }
 
@@ -12111,10 +12186,11 @@ async function saveCourseCOPOMatrix() {
       ? 'Course Outcomes, POs, PSOs आणि सहसंबंध मॅट्रिक्स यशस्वीरीत्या जतन केले!' 
       : 'Course Outcomes, POs, PSOs and Articulation Matrix saved successfully!', 'success');
     
-    // Also refresh Tab 8 (NAAC OBE Tab) if open or selected
+    // Also refresh Tab 8 (NAAC OBE Tab)
     if (typeof loadObeDataForSelectedSubject === 'function') {
-      const obeSelect = document.getElementById('obe-subject-selector');
-      if (obeSelect && obeSelect.value == courseId) {
+      const obeSelect = document.getElementById('obe-subject-selector') || document.getElementById('obe-subject-select');
+      if (obeSelect) {
+        obeSelect.value = courseId;
         loadObeDataForSelectedSubject();
       }
     }
@@ -14251,7 +14327,7 @@ async function loadCasmSubjectCourseOutcomes(subjectId) {
 
   if (!subjectId) {
     renderDefaultCasmCoOptions();
-    if (coBadge) coBadge.innerText = (currentLanguage === 'mr') ? 'ऐच्छिक (डीफॉल्ट CO1)' : 'Optional (Default CO1)';
+    if (coBadge) coBadge.innerText = (currentLanguage === 'mr') ? 'ऐच्छिक' : 'Optional';
     return;
   }
 
@@ -14273,7 +14349,7 @@ async function loadCasmSubjectCourseOutcomes(subjectId) {
   }
 
   renderDefaultCasmCoOptions();
-  if (coBadge) coBadge.innerText = (currentLanguage === 'mr') ? 'मानक COs (Standard COs)' : 'Standard COs';
+  if (coBadge) coBadge.innerText = (currentLanguage === 'mr') ? 'मानक COs' : 'Standard COs';
 }
 
 function renderCasmCoOptions(cos) {
@@ -14324,7 +14400,7 @@ function onCasmTargetCoChange() {
     const isMr = (currentLanguage === 'mr');
     coHint.classList.remove('hidden');
     coHintText.innerHTML = isMr
-      ? `✍️ <b>${escapeHtml(coSelect.value)}</b> शिक्षकांनी हस्ते निवडलेले (Manually Selected).`
+      ? `✍️ <b>${escapeHtml(coSelect.value)}</b> शिक्षकांनी निवडलेले.`
       : `✍️ <b>${escapeHtml(coSelect.value)}</b> manually selected by faculty.`;
   }
 }
@@ -16657,11 +16733,11 @@ function downloadSelectedCourseArchiveZip(explicitSubjectId = null) {
   }
 
   if (!subjectId) {
-    showToast(currentLanguage === 'mr' ? 'कृपया आधी विषय (Subject / Course) निवडा, ज्याचे संपूर्ण सेमिस्टर ZIP डाउनलोड करायचे आहे.' : 'Please select a Subject / Course first to export the Semester ZIP Archive.', 'info');
+    showToast(currentLanguage === 'mr' ? 'कृपया आधी विषय निवडा, ज्याचे संपूर्ण सेमिस्टर ZIP डाउनलोड करायचे आहे.' : 'Please select a Subject / Course first to export the Semester ZIP Archive.', 'info');
     return;
   }
 
-  showToast(currentLanguage === 'mr' ? '📦 संपूर्ण सेमिस्टर ZIP संचिका तयार होत आहे (Consolidated CSV + अधिकृत PDFs)...' : '📦 Creating comprehensive Semester ZIP Archive (Consolidated CSV + Verified PDFs)...', 'info');
+  showToast(currentLanguage === 'mr' ? '📦 संपूर्ण सेमिस्टर ZIP संचिका तयार होत आहे...' : '📦 Creating comprehensive Semester ZIP Archive...', 'info');
   const url = `/api/teacher/courses/${subjectId}/export-archive-zip`;
   window.open(url, '_blank');
 }
@@ -16708,7 +16784,7 @@ function initAutoSaveDraftForSolver(asmId) {
       studentQuill.root.innerHTML = savedDraft;
       const badgeText = document.getElementById('stu-draft-status-text');
       if (badgeText) {
-        badgeText.innerText = currentLanguage === 'mr' ? 'मागील मसुदा पुनर्प्राप्त (Draft Restored)' : 'Draft Restored';
+        badgeText.innerText = currentLanguage === 'mr' ? 'मागील मसुदा पुनर्प्राप्त' : 'Draft Restored';
       }
       showToast(currentLanguage === 'mr' ? '💾 तुमचा मागील सेव्ह केलेला मसुदा आपोआप सुरक्षित पुनर्प्राप्त केला आहे.' : '💾 Your unsaved draft was automatically restored.', 'success');
     }
@@ -16796,7 +16872,7 @@ function updateVoiceUI(active, statusText = '') {
     }
   } else {
     if (btn) btn.classList.remove('animate-pulse', 'ring-4', 'ring-red-400', 'bg-red-600', 'text-white');
-    if (label) label.innerText = currentLanguage === 'mr' ? 'व्हॉईस टायपिंग (Voice)' : 'Voice Typing';
+    if (label) label.innerText = currentLanguage === 'mr' ? 'व्हॉईस टायपिंग' : 'Voice Typing';
     if (banner) banner.classList.add('hidden');
     const interimEl = document.getElementById('stu-voice-interim-text');
     if (interimEl) interimEl.innerText = isMarathi ? 'माइकवर स्पष्ट बोला, तुमचे बोलणे येथे टाईप होत आहे...' : 'Speak into microphone, words appear here...';
@@ -17771,9 +17847,9 @@ function showStreamSubjectSummary(streamKey) {
         <thead class="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
           <tr>
             <th class="p-2.5 text-center w-10">#</th>
-            <th class="p-2.5">${currentLanguage === 'mr' ? 'विषयाचे नाव (Subject Name)' : 'Subject Name'}</th>
+            <th class="p-2.5">${currentLanguage === 'mr' ? 'विषयाचे नाव' : 'Subject Name'}</th>
             <th class="p-2.5 text-center">${currentLanguage === 'mr' ? 'प्राध्यापक संख्या' : 'Faculty Count'}</th>
-            <th class="p-2.5 text-center">${currentLanguage === 'mr' ? 'कोर्सेस (CIE Mappings)' : 'Course Masters'}</th>
+            <th class="p-2.5 text-center">${currentLanguage === 'mr' ? 'अभ्यासक्रम रचना' : 'Course Masters'}</th>
             <th class="p-2.5 text-center">${currentLanguage === 'mr' ? 'विद्यार्थी' : 'Students'}</th>
           </tr>
         </thead>
@@ -18573,11 +18649,11 @@ async function loadTeacherStudentFilterOptions() {
       if (curVal) el.value = curVal;
     };
 
-    populateDropdown('t-student-search-class', opts.classes, currentLanguage === 'mr' ? 'सर्व वर्ग (All Classes)' : 'All Classes');
-    populateDropdown('t-student-search-stream', opts.streams, currentLanguage === 'mr' ? 'सर्व विद्याशाखा (All Streams)' : 'All Faculty Streams');
-    populateDropdown('t-student-search-subject', opts.subjects, currentLanguage === 'mr' ? 'सर्व विषय (All Subjects)' : 'All Subjects');
-    populateDropdown('t-student-search-college', opts.colleges, currentLanguage === 'mr' ? 'सर्व महाविद्यालये (All Colleges)' : 'All Colleges');
-    populateDropdown('t-student-search-univ', opts.universities, currentLanguage === 'mr' ? 'सर्व विद्यापीठे (All Universities)' : 'All Universities');
+    populateDropdown('t-student-search-class', opts.classes, currentLanguage === 'mr' ? 'सर्व वर्ग' : 'All Classes');
+    populateDropdown('t-student-search-stream', opts.streams, currentLanguage === 'mr' ? 'सर्व विद्याशाखा' : 'All Faculty Streams');
+    populateDropdown('t-student-search-subject', opts.subjects, currentLanguage === 'mr' ? 'सर्व विषय' : 'All Subjects');
+    populateDropdown('t-student-search-college', opts.colleges, currentLanguage === 'mr' ? 'सर्व महाविद्यालये' : 'All Colleges');
+    populateDropdown('t-student-search-univ', opts.universities, currentLanguage === 'mr' ? 'सर्व विद्यापीठे' : 'All Universities');
 
   } catch (e) {
     console.error('Error loading filter options:', e);
@@ -20906,6 +20982,7 @@ async function loadObeSubjects() {
   if (!select) return;
 
   try {
+    const prevSelected = select.value || (typeof currentSelectedCourseId !== 'undefined' && currentSelectedCourseId ? String(currentSelectedCourseId) : (document.getElementById('copo-select-course')?.value || ''));
     const res = await fetch('/api/teacher/subjects');
     const data = await res.json();
     if (!res.ok) {
@@ -20929,6 +21006,10 @@ async function loadObeSubjects() {
       select.appendChild(opt);
     });
 
+    if (prevSelected && Array.from(select.options).some(o => String(o.value) === String(prevSelected))) {
+      select.value = String(prevSelected);
+    }
+
     // Also populate Target CO dropdown in Create Assessment Form if not already populated
     const targetCoSelect = document.getElementById('casm-target-co');
     if (targetCoSelect && targetCoSelect.children.length === 0) {
@@ -20940,7 +21021,7 @@ async function loadObeSubjects() {
       });
     }
 
-    // Load data for the first subject
+    // Load data for the selected subject
     await loadObeDataForSelectedSubject();
   } catch (e) {
     console.error('Error loading OBE subjects:', e);
@@ -20951,6 +21032,11 @@ async function loadObeDataForSelectedSubject() {
   const select = getObeSubjectSelect();
   if (!select || !select.value) return;
   const subjectId = select.value;
+  currentSelectedCourseId = parseInt(subjectId);
+  const copoPicker = document.getElementById('copo-select-course');
+  if (copoPicker && copoPicker.value != subjectId) {
+    copoPicker.value = subjectId;
+  }
 
   try {
     // 1. Fetch Universal POs and PSOs
@@ -21041,7 +21127,7 @@ function renderObeMatrixGrid(cos, pos, psos) {
         <i class="fa-solid fa-graduation-cap mr-1 text-indigo-300"></i> ${isMr ? 'पदवी कार्यक्रम निष्पत्ती (Program Outcomes - PO1 ते PO12)' : 'Program Outcomes (PO1 to PO12)'}
       </th>
       <th colspan="${psoCount}" class="p-2 bg-purple-900 text-white font-extrabold text-center border-b border-purple-700 tracking-wide text-xs">
-        <i class="fa-solid fa-shapes mr-1 text-purple-300"></i> ${isMr ? 'पदवी विशेष निष्पत्ती (PSOs)' : 'Program Specific Outcomes (PSOs)'}
+        <i class="fa-solid fa-shapes mr-1 text-purple-300"></i> ${isMr ? 'पदवी विशेष निष्पत्ती' : 'Program Specific Outcomes (PSOs)'}
       </th>
     </tr>
   `;
@@ -21266,7 +21352,7 @@ function renderObeLiveAttainmentTables(attData) {
       else levelClass = 'bg-rose-100 text-rose-900 border border-rose-300';
 
       const statusBadge = item.is_attained
-        ? `<span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold"><i class="fa-solid fa-circle-check mr-1"></i>${isMr ? 'साध्य (Attained)' : 'Attained'}</span>`
+        ? `<span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold"><i class="fa-solid fa-circle-check mr-1"></i>${isMr ? 'साध्य' : 'Attained'}</span>`
         : `<span class="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-medium"><i class="fa-solid fa-clock mr-1"></i>${isMr ? 'प्रयत्न आवश्यक' : 'In Progress'}</span>`;
 
       return `
@@ -21416,7 +21502,9 @@ async function saveCourseOutcomesConfiguration() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         subject_id: subjectId,
-        course_outcomes: courseOutcomes
+        course_outcomes: courseOutcomes,
+        program_outcomes: currentObeProgramOutcomes,
+        program_specific_outcomes: currentObeProgramSpecificOutcomes
       })
     });
     const data = await res.json();
@@ -21427,6 +21515,16 @@ async function saveCourseOutcomesConfiguration() {
 
     showToast(currentLanguage === 'mr' ? 'Course Outcomes व PO/PSO मॅपिंग यशस्वीरीत्या जतन केले!' : 'Course Outcomes & PO/PSO Matrix saved successfully!', 'success');
     await loadObeDataForSelectedSubject();
+
+    // Also refresh Tab 1 (Part 1C: Teaching Courses CO-PO Matrix) if loaded
+    if (typeof loadCourseCOPOMatrix === 'function') {
+      const copoPicker = document.getElementById('copo-select-course');
+      if (copoPicker) {
+        copoPicker.value = subjectId;
+      }
+      currentSelectedCourseId = subjectId;
+      loadCourseCOPOMatrix(subjectId);
+    }
   } catch (e) {
     showToast(currentLanguage === 'mr' ? 'CO साठवण्यात त्रुटी आली' : 'Error saving CO configuration', 'error');
   }
@@ -21560,7 +21658,45 @@ async function loadAdminCollegeAttainment() {
       }
     }
 
-    // Render Section 1: Faculty / Stream-wise Attainment Summary
+    // Render Section 1: Academic Term-wise Attainment Summary
+    const termTbody = document.getElementById('admin-naac-term-tbody');
+    if (termTbody) {
+      const terms = report.term_summary || [];
+      if (terms.length === 0) {
+        termTbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">${isMr ? 'सत्र माहिती उपलब्ध नाही.' : 'Academic Term data not available.'}</td></tr>`;
+      } else {
+        termTbody.innerHTML = terms.map(t => {
+          let lvlBadge = 'bg-slate-100 text-slate-700';
+          if (t.naac_level === 3) lvlBadge = 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-black';
+          else if (t.naac_level === 2) lvlBadge = 'bg-blue-100 text-blue-900 border border-blue-300 font-bold';
+          else if (t.naac_level === 1) lvlBadge = 'bg-amber-100 text-amber-900 border border-amber-300 font-bold';
+          else lvlBadge = 'bg-rose-100 text-rose-900 border border-rose-300';
+
+          const isAnnual = (t.term_id === 'annual');
+          const rowBg = isAnnual ? 'bg-emerald-50/70 font-bold' : 'hover:bg-slate-50 transition';
+          const icon = isAnnual ? 'fa-award text-amber-600' : 'fa-calendar-check text-emerald-600';
+
+          return `
+            <tr class="${rowBg}">
+              <td class="p-3 font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid ${icon}"></i>
+                <span>${escapeHtml(t.term_name)}</span>
+              </td>
+              <td class="p-3 text-center text-xs text-slate-600 font-medium">${escapeHtml(t.semesters_included || '—')}</td>
+              <td class="p-3 text-center font-semibold text-slate-700">${t.total_courses}</td>
+              <td class="p-3 text-center font-bold text-emerald-900">${t.evaluated_courses}</td>
+              <td class="p-3 text-center font-semibold text-slate-700">${t.evaluated_students}</td>
+              <td class="p-3 text-center font-black text-slate-900 text-sm">${t.average_attainment_pct}%</td>
+              <td class="p-3 text-center">
+                <span class="px-2.5 py-1 rounded-md text-xs ${lvlBadge}">${isMr ? 'पातळी ' + t.naac_level : 'Level ' + t.naac_level}</span>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    // Render Section 2: Faculty / Stream-wise Attainment Summary
     const streamTbody = document.getElementById('admin-naac-stream-tbody');
     if (streamTbody) {
       const streams = report.stream_summary || [];
@@ -21638,11 +21774,11 @@ async function loadAdminCollegeAttainment() {
             <i class="fa-solid fa-triangle-exclamation text-amber-600 text-lg mt-0.5"></i>
             <div>
               <div class="font-bold text-xs">
-                ${isMr ? 'मूल्यांकन अद्याप प्रलंबित आहे (Evaluations Pending)' : 'Evaluations Pending for this Academic Year'}
+                ${isMr ? 'मूल्यांकन अद्याप प्रलंबित आहे' : 'Evaluations Pending for this Academic Year'}
               </div>
               <div class="text-[11px] mt-0.5 text-amber-800 leading-relaxed">
                 ${isMr 
-                  ? `या महाविद्यालयातील <b>${summary.total_courses_count}</b> कोर्सेस नोंदणीकृत आहेत, परंतु या शैक्षणिक वर्षात (${escapeHtml(academicYear)}) अंतर्गत गुण व विद्यार्थी मूल्यांकन (CIA / Direct Attainment) अद्याप पूर्ण झालेले नाही. त्यामुळे साध्यता पातळी 0% दर्शवत आहे. प्राध्यापकांनी 'Internal Evaluation Marks Entry' पूर्ण केल्यानंतर येथे अधिकृत आकडेवारी व PO मॅट्रिक्स आपोआप दिसेल.`
+                  ? `या महाविद्यालयातील <b>${summary.total_courses_count}</b> विषय नोंदणीकृत आहेत, परंतु या शैक्षणिक वर्षात (${escapeHtml(academicYear)}) अंतर्गत गुण व विद्यार्थी मूल्यांकन अद्याप पूर्ण झालेले नाही. त्यामुळे साध्यता पातळी 0% दर्शवत आहे. प्राध्यापकांनी अंतर्गत मूल्यमापन पूर्ण केल्यानंतर येथे अधिकृत आकडेवारी व मॅट्रिक्स आपोआप दिसेल.`
                   : `There are <b>${summary.total_courses_count}</b> courses registered for this college, but no student CIE marks/attainment evaluations have been submitted yet for academic year ${escapeHtml(academicYear)}. Once teachers finalize evaluations, the attainment matrix will be computed automatically.`}
               </div>
             </div>
@@ -21706,7 +21842,47 @@ async function loadAdminCollegeAttainment() {
       }
     }
 
-    // Render Section B: Faculty Breakdown
+    // Render Section B: Department & Program Specific Outcomes (PSOs)
+    const psoTbody = document.getElementById('admin-naac-pso-tbody');
+    if (psoTbody) {
+      const psos = report.pso_summary || [];
+      if (psos.length === 0) {
+        psoTbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">${isMr ? 'PSO डेटा उपलब्ध नाही.' : 'PSO data not available.'}</td></tr>`;
+      } else {
+        psoTbody.innerHTML = psos.map((p, idx) => {
+          let lvlBadge = 'bg-slate-100 text-slate-700';
+          if (p.naac_level === 3) lvlBadge = 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-black';
+          else if (p.naac_level === 2) lvlBadge = 'bg-blue-100 text-blue-900 border border-blue-300 font-bold';
+          else if (p.naac_level === 1) lvlBadge = 'bg-amber-100 text-amber-900 border border-amber-300 font-bold';
+          else lvlBadge = 'bg-rose-100 text-rose-900 border border-rose-300';
+
+          const title = isMr ? (p.pso_title_mr || p.pso_title) : (p.pso_title_en || p.pso_title);
+          const desc = isMr ? (p.pso_description_mr || p.pso_description || '') : (p.pso_description_en || p.pso_description || '');
+
+          return `
+            <tr class="hover:bg-slate-50 transition">
+              <td class="p-3 text-center text-slate-500 font-medium">${idx + 1}</td>
+              <td class="p-3">
+                <div class="font-bold text-slate-900">${escapeHtml(p.department_name || p.subject_name || '')}</div>
+                <div class="text-[11px] text-slate-500">${escapeHtml(p.subject_name || '')} • ${escapeHtml(p.course_name || '')}</div>
+              </td>
+              <td class="p-3 text-slate-700 font-medium">${escapeHtml(p.class_name || '')} Sem-${p.semester || 1}</td>
+              <td class="p-3">
+                <div class="font-bold text-purple-950">${escapeHtml(p.pso_code)}: ${escapeHtml(title)}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(desc)}</div>
+              </td>
+              <td class="p-3 text-center font-bold text-slate-800">${p.students_evaluated} / ${p.students_meeting_target}</td>
+              <td class="p-3 text-center font-black text-purple-900 text-sm">${p.attainment_pct}%</td>
+              <td class="p-3 text-center">
+                <span class="px-2.5 py-1 rounded-md text-xs ${lvlBadge}">${isMr ? 'पातळी ' + p.naac_level : 'Level ' + p.naac_level}</span>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    // Render Section C: Faculty Breakdown
     const courseTbody = document.getElementById('admin-naac-course-tbody');
     if (courseTbody) {
       const courses = report.teacher_breakdown || [];
