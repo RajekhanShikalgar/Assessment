@@ -7654,6 +7654,355 @@ def api_obe_teacher_attainment(subject_id):
         **result
     })
 
+def compute_teacher_comprehensive_naac_data(teacher_id, academic_year=None):
+    """
+    Computes comprehensive OBE outcome attainment for an individual teacher across all
+    their assigned courses, including Term I, Term II, Annual consolidation, PO1-PO12 matrix,
+    and subject-wise PSO attainment.
+    """
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    SELECT id, teacher_code, name, designation, faculty_stream, subject_name, college_name, aishe_code, college_code, university_name, academic_year
+    FROM teachers
+    WHERE id = ?
+    """, (teacher_id,))
+    teacher_row = cursor.fetchone()
+    if not teacher_row:
+        conn.close()
+        return None
+
+    teacher = dict(teacher_row)
+    acad_yr = academic_year or teacher.get('academic_year') or '2026–27'
+
+    cursor.execute("""
+    SELECT *
+    FROM teacher_subjects
+    WHERE teacher_id = ?
+    ORDER BY semester ASC, course_name ASC
+    """, (teacher_id,))
+    subjects = [dict(r) for r in cursor.fetchall()]
+
+    pos = database.get_all_program_outcomes()
+    po_course_map = {po['po_code']: [] for po in pos}
+    pso_course_map = {}
+    pso_summary = []
+    course_breakdown = []
+
+    evaluated_courses_count = 0
+    total_students_evaluated_set = set()
+    total_students_meeting_target = 0
+    overall_attainment_sum = 0.0
+
+    def parse_semester_term(sem_val):
+        s = str(sem_val or '').strip().upper()
+        m = re.search(r'\d+', s)
+        if m:
+            val = int(m.group())
+            return (1, "Term I (Odd Semesters)") if val % 2 == 1 else (2, "Term II (Even Semesters)")
+        if any(k in s for k in ['VIII', 'VI', 'IV', 'II']):
+            return 2, "Term II (Even Semesters)"
+        return 1, "Term I (Odd Semesters)"
+
+    term_map = {
+        1: {
+            'term_key': 'term_1',
+            'term_number': 1,
+            'term_name': 'Term I (Odd Semesters: Sem 1, 3, 5, 7)',
+            'term_short': 'Term I (Odd Sem)',
+            'semesters_included': 'Sem 1, 3, 5, 7',
+            'total_courses': 0,
+            'evaluated_courses': 0,
+            'students_evaluated': 0,
+            'students_meeting_target': 0,
+            'attainment_sum': 0.0
+        },
+        2: {
+            'term_key': 'term_2',
+            'term_number': 2,
+            'term_name': 'Term II (Even Semesters: Sem 2, 4, 6, 8)',
+            'term_short': 'Term II (Even Sem)',
+            'semesters_included': 'Sem 2, 4, 6, 8',
+            'total_courses': 0,
+            'evaluated_courses': 0,
+            'students_evaluated': 0,
+            'students_meeting_target': 0,
+            'attainment_sum': 0.0
+        }
+    }
+
+    for sub in subjects:
+        sub_id = sub['id']
+        t_num, _ = parse_semester_term(sub.get('semester'))
+        term_map[t_num]['total_courses'] += 1
+
+        cursor.execute("""
+        SELECT e.marks_obtained, e.maximum_marks, s.roster_id, s.prn
+        FROM evaluations e
+        JOIN submissions s ON e.submission_id = s.id
+        JOIN created_assessments ca ON s.created_assessment_id = ca.id
+        WHERE ca.subject_id = ? AND ca.teacher_id = ?
+        """, (sub_id, teacher_id))
+        evals = cursor.fetchall()
+
+        cos = database.get_course_outcomes_for_subject(sub_id, teacher_id)
+        target_benchmark = 60.0
+
+        if evals:
+            evaluated_courses_count += 1
+            evaluated_count = len(evals)
+            meeting_target = sum(1 for ev in evals if (ev['maximum_marks'] or 20.0) > 0 and ((ev['marks_obtained'] or 0.0) / (ev['maximum_marks'] or 20.0)) >= (target_benchmark / 100.0))
+            for ev in evals:
+                total_students_evaluated_set.add(f"{sub_id}_{ev['roster_id'] or ev['prn']}")
+            total_students_meeting_target += meeting_target
+
+            attainment_pct = round((meeting_target / evaluated_count * 100.0), 1) if evaluated_count > 0 else 0.0
+            overall_attainment_sum += attainment_pct
+            lvl = 3 if attainment_pct >= 70.0 else (2 if attainment_pct >= 60.0 else (1 if attainment_pct >= 50.0 else 0))
+
+            term_map[t_num]['evaluated_courses'] += 1
+            term_map[t_num]['students_evaluated'] += evaluated_count
+            term_map[t_num]['students_meeting_target'] += meeting_target
+            term_map[t_num]['attainment_sum'] += attainment_pct
+
+            course_breakdown.append({
+                'subject_id': sub_id,
+                'teacher_name': teacher['name'],
+                'designation': teacher.get('designation', 'Faculty'),
+                'department_name': teacher.get('subject_name', 'General Studies'),
+                'faculty_stream': teacher.get('faculty_stream', 'General'),
+                'subject_name': sub.get('subject_name') or sub.get('course_name'),
+                'course_code': sub.get('course_code') or 'CC',
+                'course_name': sub.get('course_name'),
+                'class_name': sub.get('class_name'),
+                'semester': sub.get('semester'),
+                'term_number': t_num,
+                'term_name': f"Term {t_num} (Sem-{sub.get('semester')})",
+                'students_evaluated': evaluated_count,
+                'students_meeting_target': meeting_target,
+                'attainment_pct': attainment_pct,
+                'naac_level': lvl
+            })
+
+            # Map to POs
+            for co in cos:
+                mapping = co.get('po_mapping', {})
+                for p_code, w in mapping.items():
+                    if float(w or 0) > 0 and p_code in po_course_map:
+                        po_course_map[p_code].append(attainment_pct)
+        else:
+            course_breakdown.append({
+                'subject_id': sub_id,
+                'teacher_name': teacher['name'],
+                'designation': teacher.get('designation', 'Faculty'),
+                'department_name': teacher.get('subject_name', 'General Studies'),
+                'faculty_stream': teacher.get('faculty_stream', 'General'),
+                'subject_name': sub.get('subject_name') or sub.get('course_name'),
+                'course_code': sub.get('course_code') or 'CC',
+                'course_name': sub.get('course_name'),
+                'class_name': sub.get('class_name'),
+                'semester': sub.get('semester'),
+                'term_number': t_num,
+                'term_name': f"Term {t_num} (Sem-{sub.get('semester')})",
+                'students_evaluated': 0,
+                'students_meeting_target': 0,
+                'attainment_pct': 0.0,
+                'naac_level': 0
+            })
+
+        # PSOs for this subject
+        psos = database.get_all_program_specific_outcomes(sub_id, teacher_id)
+        if not psos:
+            psos = database.get_all_program_specific_outcomes(0)
+
+        for pso in psos:
+            p_code = pso['pso_code']
+            mapped_co_attainments = []
+            for co in cos:
+                w = float(co.get('po_mapping', {}).get(p_code, 0) or 0)
+                if w > 0 and evals:
+                    mapped_co_attainments.append(attainment_pct)
+
+            pso_att = round(sum(mapped_co_attainments) / len(mapped_co_attainments), 1) if mapped_co_attainments else (attainment_pct if evals else 0.0)
+            pso_lvl = 3 if pso_att >= 70.0 else (2 if pso_att >= 60.0 else (1 if pso_att >= 50.0 else 0))
+
+            if evals:
+                if p_code not in pso_course_map:
+                    pso_course_map[p_code] = []
+                pso_course_map[p_code].append(pso_att)
+
+            pso_summary.append({
+                'department_name': teacher.get('subject_name', 'General Studies'),
+                'faculty_stream': teacher.get('faculty_stream', 'General'),
+                'subject_name': sub.get('subject_name') or sub.get('course_name'),
+                'course_code': sub.get('course_code') or 'CC',
+                'course_name': sub.get('course_name'),
+                'class_name': sub.get('class_name'),
+                'semester': sub.get('semester'),
+                'pso_code': pso['pso_code'],
+                'pso_title': pso.get('pso_title_en') or pso.get('pso_title') or pso['pso_code'],
+                'pso_title_en': pso.get('pso_title_en') or pso.get('pso_title') or pso['pso_code'],
+                'pso_title_mr': pso.get('pso_title_mr') or pso.get('pso_title') or pso['pso_code'],
+                'pso_description': pso.get('pso_description_en') or pso.get('pso_description') or '',
+                'pso_description_en': pso.get('pso_description_en') or pso.get('pso_description') or '',
+                'pso_description_mr': pso.get('pso_description_mr') or pso.get('pso_description') or '',
+                'students_evaluated': len(evals) if evals else 0,
+                'students_meeting_target': meeting_target if evals else 0,
+                'attainment_pct': pso_att,
+                'naac_level': pso_lvl
+            })
+
+    total_courses_count = len(subjects)
+    coverage_pct = round((evaluated_courses_count / total_courses_count * 100.0), 1) if total_courses_count > 0 else 0.0
+    overall_attainment_pct = round((overall_attainment_sum / evaluated_courses_count), 1) if evaluated_courses_count > 0 else 0.0
+    overall_lvl = 3 if overall_attainment_pct >= 70.0 else (2 if overall_attainment_pct >= 60.0 else (1 if overall_attainment_pct >= 50.0 else 0))
+
+    term_summary = []
+    for t_num in [1, 2]:
+        t_info = term_map[t_num]
+        t_eval = t_info['evaluated_courses']
+        t_avg = round(t_info['attainment_sum'] / t_eval, 1) if t_eval > 0 else 0.0
+        t_lvl = 3 if t_avg >= 70.0 else (2 if t_avg >= 60.0 else (1 if t_avg >= 50.0 else 0))
+        term_summary.append({
+            'term_id': f'term_{t_num}',
+            'term_number': t_num,
+            'term_name': t_info['term_name'],
+            'term_short': t_info['term_short'],
+            'semesters_included': t_info['semesters_included'],
+            'total_courses': t_info['total_courses'],
+            'evaluated_courses': t_eval,
+            'students_evaluated': t_info['students_evaluated'],
+            'students_meeting_target': t_info['students_meeting_target'],
+            'attainment_pct': t_avg,
+            'naac_level': t_lvl
+        })
+
+    # Annual Consolidation
+    term_summary.append({
+        'term_id': 'annual_consolidation',
+        'term_number': 'Annual',
+        'term_name': 'Annual Institutional Attainment (Consolidated Academic Year)',
+        'term_short': 'Annual Attainment',
+        'semesters_included': 'All Semesters (Sem 1 to 8)',
+        'total_courses': total_courses_count,
+        'evaluated_courses': evaluated_courses_count,
+        'students_evaluated': len(total_students_evaluated_set),
+        'students_meeting_target': total_students_meeting_target,
+        'attainment_pct': overall_attainment_pct,
+        'naac_level': overall_lvl
+    })
+
+    # PO Attainment List
+    po_attainment_list = []
+    for po in pos:
+        p_code = po['po_code']
+        scores = po_course_map.get(p_code, [])
+        if scores:
+            p_pct = round(sum(scores) / len(scores), 1)
+            p_lvl = 3 if p_pct >= 70.0 else (2 if p_pct >= 60.0 else (1 if p_pct >= 50.0 else 0))
+        elif evaluated_courses_count > 0:
+            p_pct = overall_attainment_pct
+            p_lvl = overall_lvl
+        else:
+            p_pct = 0.0
+            p_lvl = 0
+        po_attainment_list.append({
+            'po_code': p_code,
+            'po_title': po.get('po_title_en') or po['po_title'],
+            'po_title_en': po.get('po_title_en') or po['po_title'],
+            'po_title_mr': po.get('po_title_mr') or po['po_title'],
+            'po_description': po.get('po_description_en') or po.get('po_description', ''),
+            'po_description_en': po.get('po_description_en') or po.get('po_description', ''),
+            'po_description_mr': po.get('po_description_mr') or po.get('po_description', ''),
+            'mapped_courses_count': len(scores),
+            'attainment_pct': p_pct,
+            'naac_level': p_lvl
+        })
+
+    # Default PSO aggregates
+    default_psos = database.get_all_program_specific_outcomes(0)
+    pso_attainment_list = []
+    for pso in default_psos:
+        p_code = pso['pso_code']
+        scores = pso_course_map.get(p_code, [])
+        if scores:
+            p_pct = round(sum(scores) / len(scores), 1)
+            p_lvl = 3 if p_pct >= 70.0 else (2 if p_pct >= 60.0 else (1 if p_pct >= 50.0 else 0))
+        elif evaluated_courses_count > 0:
+            p_pct = overall_attainment_pct
+            p_lvl = overall_lvl
+        else:
+            p_pct = 0.0
+            p_lvl = 0
+        pso_attainment_list.append({
+            'pso_code': p_code,
+            'pso_title': pso.get('pso_title_en') or pso['pso_title'],
+            'pso_title_en': pso.get('pso_title_en') or pso['pso_title'],
+            'pso_title_mr': pso.get('pso_title_mr') or pso['pso_title'],
+            'pso_description': pso.get('pso_description_en') or pso.get('pso_description', ''),
+            'pso_description_en': pso.get('pso_description_en') or pso.get('pso_description', ''),
+            'pso_description_mr': pso.get('pso_description_mr') or pso.get('pso_description', ''),
+            'mapped_courses_count': len(scores),
+            'attainment_pct': p_pct,
+            'naac_level': p_lvl
+        })
+
+    conn.close()
+
+    return {
+        'teacher': teacher,
+        'academic_year': acad_yr,
+        'summary': {
+            'total_courses_count': total_courses_count,
+            'evaluated_courses_count': evaluated_courses_count,
+            'coverage_percentage': coverage_pct,
+            'total_students_evaluated': len(total_students_evaluated_set),
+            'overall_attainment_percentage': overall_attainment_pct,
+            'overall_naac_level': overall_lvl,
+            'aishe_code': teacher.get('aishe_code') or 'N/A',
+            'college_code': teacher.get('college_code') or 'N/A'
+        },
+        'term_summary': term_summary,
+        'course_breakdown': course_breakdown,
+        'po_attainment_list': po_attainment_list,
+        'pso_attainment_list': pso_attainment_list,
+        'pso_summary': pso_summary
+    }
+
+@app.route('/api/obe/teacher-comprehensive-report', methods=['GET'])
+@teacher_required
+def api_obe_teacher_comprehensive_report():
+    teacher = get_current_teacher()
+    acad_yr = request.args.get('academic_year')
+    data = compute_teacher_comprehensive_naac_data(teacher['id'], acad_yr)
+    if not data:
+        return jsonify({'error': 'Teacher data not found.'}), 404
+    return jsonify({
+        'success': True,
+        **data
+    })
+
+@app.route('/api/obe/download-teacher-report-pdf', methods=['GET'])
+@teacher_required
+def api_obe_download_teacher_report_pdf():
+    teacher = get_current_teacher()
+    acad_yr = request.args.get('academic_year')
+    data = compute_teacher_comprehensive_naac_data(teacher['id'], acad_yr)
+    if not data:
+        return jsonify({'error': 'Teacher attainment record not found.'}), 404
+    
+    pdf_bytes = pdf_generator.generate_teacher_obe_attainment_pdf(teacher, data)
+    safe_name = re.sub(r'[^a-zA-Z0-9_-]', '_', teacher.get('name', 'Teacher'))
+    filename = f"Teacher_OBE_Attainment_Report_{safe_name}.pdf"
+    
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=filename
+    )
+
 GENERIC_COLLEGE_WORDS = {
     'college', 'institute', 'department', 'school', 'academy', 'autonomous',
     'स्वायत्त', 'महाविद्यालय', 'संस्था', 'arts', 'commerce', 'science',
