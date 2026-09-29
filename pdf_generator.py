@@ -1270,25 +1270,42 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
     story.append(po_table)
     story.append(Spacer(1, 6))
 
-    # 5B. Department & Program Specific Outcomes (PSOs) Attainment Summary (Grouped by Subject/Course)
+    # 5B. Department & Program Specific Outcomes (PSOs) Attainment Summary (Grouped by Subject / Department)
     pso_summary_list = data.get('pso_summary', [])
     if pso_summary_list:
         story.append(safe_paragraph("<b>5B. Department &amp; Program Specific Outcomes (PSOs) Attainment Summary</b>", section_h2_style))
         
-        # Group by Subject / Course
-        grouped_pso = {}
+        # Group by Subject / Department
+        grouped_subj_pso = {}
         for p in pso_summary_list:
-            key = (
-                p.get('department_name', ''),
-                p.get('subject_name', ''),
-                p.get('course_code', ''),
-                p.get('course_name', ''),
-                p.get('class_name', ''),
-                p.get('semester', '')
-            )
-            if key not in grouped_pso:
-                grouped_pso[key] = []
-            grouped_pso[key].append(p)
+            d_name = p.get('department_name') or p.get('subject_name') or 'General Department'
+            s_name = p.get('subject_name') or p.get('department_name') or 'General Subject'
+            dept_key = d_name
+            if dept_key not in grouped_subj_pso:
+                grouped_subj_pso[dept_key] = {
+                    'department_name': d_name,
+                    'subject_name': s_name,
+                    'pso_dict': {}
+                }
+            
+            p_code = p.get('pso_code', '')
+            if p_code not in grouped_subj_pso[dept_key]['pso_dict']:
+                grouped_subj_pso[dept_key]['pso_dict'][p_code] = {
+                    'pso_code': p_code,
+                    'pso_title': p.get('pso_title_en') or p.get('pso_title') or p_code,
+                    'pso_description': p.get('pso_description_en') or p.get('pso_description') or '',
+                    'students_evaluated_sum': 0,
+                    'students_meeting_target_sum': 0,
+                    'attainments': []
+                }
+            
+            pso_entry = grouped_subj_pso[dept_key]['pso_dict'][p_code]
+            eval_cnt = int(p.get('students_evaluated', 0) or 0)
+            target_cnt = int(p.get('students_meeting_target', 0) or 0)
+            pso_entry['students_evaluated_sum'] += eval_cnt
+            pso_entry['students_meeting_target_sum'] += target_cnt
+            if eval_cnt > 0:
+                pso_entry['attainments'].append(float(p.get('attainment_pct', 0.0) or 0.0))
 
         pso_table_data = [
             [
@@ -1304,13 +1321,10 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
         row_styles = []
         current_row = 1
         
-        for (d_name, s_name, c_code, c_name, cl_name, sem), p_items in list(grouped_pso.items())[:15]:
-            d_clean = to_clean_english(d_name)
-            s_clean = to_clean_english(s_name)
-            c_clean = to_clean_english(c_name)
-            cl_clean = to_clean_english(cl_name)
+        for dept_key, dept_data in grouped_subj_pso.items():
+            d_clean = to_clean_english(dept_data['department_name'])
             
-            subj_title = f"<b>Department:</b> {d_clean} &nbsp;|&nbsp; <b>Course:</b> {c_clean} ({c_code or 'CC'}) &nbsp;|&nbsp; <b>Class:</b> {cl_clean} (Sem-{sem})"
+            subj_title = f"<b>Subject / Department:</b> {d_clean}"
             pso_table_data.append([
                 safe_paragraph(f"<font size='7' color='#4C1D95'>{subj_title}</font>", cell_bold),
                 "", "", "", "", ""
@@ -1321,19 +1335,21 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
             row_styles.append(('BOTTOMPADDING', (0, current_row), (5, current_row), 3))
             current_row += 1
             
-            for p in p_items:
-                p_lvl = p.get('naac_level', 1)
+            for p_code, p_info in sorted(dept_data['pso_dict'].items()):
+                atts = p_info['attainments']
+                avg_att = round(sum(atts) / len(atts), 1) if atts else 0.0
+                p_lvl = 3 if avg_att >= 70.0 else (2 if avg_att >= 60.0 else (1 if avg_att >= 50.0 else 0))
                 p_color = level_color_map.get(p_lvl, "#2563EB")
                 status_label = f"<font color='{p_color}'><b>Level {p_lvl} (Attained)</b></font>" if p_lvl >= 1 else "<font color='#DC2626'><b>Not Attained</b></font>"
-                p_title = xml_clean(p.get('pso_title_en') or p.get('pso_title') or p.get('pso_code', ''))
-                p_desc = xml_clean(p.get('pso_description_en') or p.get('pso_description') or '')
+                p_title = xml_clean(p_info['pso_title'])
+                p_desc = xml_clean(p_info['pso_description'])
                 p_desc_clean = (p_desc[:115] + '...') if len(p_desc) > 115 else p_desc
                 
                 pso_table_data.append([
-                    safe_paragraph(f"<b>{xml_clean(p.get('pso_code', ''))}</b>", cell_bold),
+                    safe_paragraph(f"<b>{xml_clean(p_code)}</b>", cell_bold),
                     safe_paragraph(f"<b>{p_title}</b><br/><font size='6' color='#64748B'>{p_desc_clean}</font>", cell_regular),
-                    safe_paragraph(f"<center>{p.get('students_evaluated', 0)} / {p.get('students_meeting_target', 0)}</center>", cell_regular),
-                    safe_paragraph(f"<center><b>{p.get('attainment_pct', 0.0):.1f}%</b></center>", cell_regular),
+                    safe_paragraph(f"<center>{p_info['students_evaluated_sum']} / {p_info['students_meeting_target_sum']}</center>", cell_regular),
+                    safe_paragraph(f"<center><b>{avg_att:.1f}%</b></center>", cell_regular),
                     safe_paragraph(f"<center><b>Level {p_lvl}</b></center>", cell_bold),
                     safe_paragraph(f"<center>{status_label}</center>", cell_regular)
                 ])
@@ -1351,43 +1367,91 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
         story.append(pso_table)
         story.append(Spacer(1, 6))
 
-    # 6. Course-wise & Faculty Breakdown
-    story.append(safe_paragraph("<b>6. Faculty & Course-wise Detailed Attainment Record</b>", section_h2_style))
+    # 6. Faculty-wise Consolidated Attainment Record
+    story.append(safe_paragraph("<b>6. Faculty-wise Consolidated Attainment Record</b>", section_h2_style))
     
     teacher_breakdown = data.get('teacher_breakdown', [])
+    
+    # Group by faculty member
+    grouped_teachers = {}
+    for t in teacher_breakdown:
+        t_name = t.get('teacher_name', 'Faculty Member')
+        t_key = t_name
+        if t_key not in grouped_teachers:
+            grouped_teachers[t_key] = {
+                'teacher_name': t_name,
+                'designation': t.get('designation', 'Faculty'),
+                'department_name': t.get('department_name', t.get('subject_name', '')),
+                'courses': [],
+                'students_evaluated_sum': 0,
+                'students_meeting_target_sum': 0,
+                'evaluated_attainments': []
+            }
+        
+        g = grouped_teachers[t_key]
+        crs_name = t.get('course_name', '')
+        crs_code = t.get('course_code', '')
+        cls_name = t.get('class_name', '')
+        sem = str(t.get('semester', ''))
+        eval_cnt = int(t.get('students_evaluated', 0) or 0)
+        target_cnt = int(t.get('students_meeting_target', 0) or 0)
+        att_pct = float(t.get('attainment_pct', 0.0) or 0.0)
+        
+        g['students_evaluated_sum'] += eval_cnt
+        g['students_meeting_target_sum'] += target_cnt
+        if eval_cnt > 0:
+            g['evaluated_attainments'].append(att_pct)
+            
+        crs_label = f"{crs_name}" + (f" ({crs_code})" if crs_code else "")
+        g['courses'].append({
+            'label': crs_label,
+            'class_sem': f"{cls_name} (Sem-{sem})",
+            'evaluated': eval_cnt > 0
+        })
+
     t_table_data = [
         [
             safe_paragraph("Faculty Member", th_style),
-            safe_paragraph("Subject & Course Details", th_style),
-            safe_paragraph("Class, Sem & Term", th_style),
+            safe_paragraph("Courses Assigned / Taught", th_style),
             safe_paragraph("Students (Eval / Target)", th_style),
             safe_paragraph("Attainment (%)", th_style),
-            safe_paragraph("Level", th_style)
+            safe_paragraph("NAAC Level", th_style),
+            safe_paragraph("Outcome Status", th_style)
         ]
     ]
 
-    for t in teacher_breakdown[:40]: # Cleanly paginate/limit display
-        t_lvl = t.get('naac_level', 1)
+    for t_key, t_info in sorted(grouped_teachers.items()):
+        atts = t_info['evaluated_attainments']
+        avg_att = round(sum(atts) / len(atts), 1) if atts else 0.0
+        t_lvl = 3 if avg_att >= 70.0 else (2 if avg_att >= 60.0 else (1 if avg_att >= 50.0 else 0))
         t_color = level_color_map.get(t_lvl, "#2563EB")
-        t_term = "Term I" if int(t.get('term_number', 1) or 1) == 1 else "Term II"
-        t_tch_clean = to_clean_english(t.get('teacher_name', ''))
-        t_des_clean = to_clean_english(t.get('designation', 'Faculty'))
-        t_crs_clean = to_clean_english(t.get('course_name', ''))
-        t_dpt_clean = to_clean_english(t.get('department_name', t.get('subject_name', '')))
-        t_cls_clean = to_clean_english(t.get('class_name', ''))
+        status_label = f"<font color='{t_color}'><b>Level {t_lvl} (Attained)</b></font>" if t_lvl >= 1 else "<font color='#DC2626'><b>Not Attained</b></font>"
+        
+        t_tch_clean = to_clean_english(t_info['teacher_name'])
+        t_des_clean = to_clean_english(t_info['designation'])
+        t_dpt_clean = to_clean_english(t_info['department_name'])
+        
+        # Build courses snippet
+        total_c = len(t_info['courses'])
+        eval_c = len(atts)
+        course_names = [to_clean_english(c['label']) for c in t_info['courses']]
+        courses_str = ", ".join(course_names)
+        if len(courses_str) > 110:
+            courses_str = courses_str[:110] + "..."
+        courses_snippet = f"<b>{courses_str}</b><br/><font size='6' color='#0369A1'>[{total_c} Course{'s' if total_c != 1 else ''} Assigned | {eval_c} Evaluated]</font>"
         
         t_table_data.append([
-            safe_paragraph(f"<b>{xml_clean(t_tch_clean)}</b><br/><font size='6' color='#64748B'>{xml_clean(t_des_clean)}</font>", cell_regular),
-            safe_paragraph(f"<b>{xml_clean(t_crs_clean)}</b> ({xml_clean(t.get('course_code', ''))})<br/><font size='6' color='#64748B'>{xml_clean(t_dpt_clean)}</font>", cell_regular),
-            safe_paragraph(f"<b>{xml_clean(t_cls_clean)}</b><br/><font size='6' color='#0369A1'>Sem-{xml_clean(str(t.get('semester', '')))} ({t_term})</font>", cell_regular),
-            safe_paragraph(f"<center>{t.get('students_evaluated', 0)} / {t.get('students_meeting_target', 0)}</center>", cell_regular),
-            safe_paragraph(f"<center><b>{t.get('attainment_pct', 0.0):.1f}%</b></center>", cell_bold),
-            safe_paragraph(f"<center><font color='{t_color}'><b>L-{t_lvl}</b></font></center>", cell_bold)
+            safe_paragraph(f"<b>{xml_clean(t_tch_clean)}</b><br/><font size='6' color='#64748B'>{xml_clean(t_des_clean)} &bull; {xml_clean(t_dpt_clean)}</font>", cell_regular),
+            safe_paragraph(courses_snippet, cell_regular),
+            safe_paragraph(f"<center>{t_info['students_evaluated_sum']} / {t_info['students_meeting_target_sum']}</center>", cell_regular),
+            safe_paragraph(f"<center><b>{avg_att:.1f}%</b></center>", cell_bold),
+            safe_paragraph(f"<center><font color='{t_color}'><b>Level {t_lvl}</b></font></center>", cell_bold),
+            safe_paragraph(f"<center>{status_label}</center>", cell_regular)
         ])
 
     if len(t_table_data) == 1:
         t_table_data.append([
-            safe_paragraph("No courses evaluated yet.", cell_regular),
+            safe_paragraph("No faculty members evaluated yet.", cell_regular),
             safe_paragraph("-", cell_regular),
             safe_paragraph("-", cell_regular),
             safe_paragraph("-", cell_regular),
@@ -1395,7 +1459,7 @@ def generate_college_naac_attainment_pdf(college_name, university_name, data):
             safe_paragraph("-", cell_regular)
         ])
 
-    t_table = Table(t_table_data, colWidths=[115, 148, 85, 85, 55, 35])
+    t_table = Table(t_table_data, colWidths=[120, 160, 75, 55, 45, 55])
     t_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#0F766E")), # Teal
         ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),

@@ -3837,10 +3837,6 @@ body {
                 <i class="fa-solid fa-file-pdf"></i>
                 <span data-i18n="btn_download_teacher_obe_pdf">Download Teacher OBE PDF</span>
               </a>
-              <button type="button" onclick="loadDefaultCourseOutcomesTemplate()" class="btn-3d-glass px-3 py-2 rounded-xl text-xs font-bold text-indigo-800 flex items-center gap-1.5" title="विद्यापीठ मानकानुसार तयार ५ डीफॉल्ट COs व मॅट्रिक्स लोड करा">
-                <i class="fa-solid fa-wand-magic-sparkles text-indigo-600"></i>
-                <span data-i18n="btn_load_obe_template">Load Standard Template</span>
-              </button>
             </div>
           </div>
 
@@ -3892,9 +3888,9 @@ body {
           <div class="flex items-center justify-between pt-2 border-t border-slate-200">
             <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
               <i class="fa-solid fa-layer-group text-indigo-600"></i>
-              <span data-i18n="lbl_course_drilldown_title">विषयनिहाय CO-PO मॅट्रिक्स व मूल्यमापन पडताळणी</span>
+              <span data-i18n="lbl_course_drilldown_title">विषयनिहाय फलनिष्पत्ती साध्यता पडताळणी (Course-wise Outcome Attainment & Verification)</span>
             </h4>
-            <span class="text-[11px] text-slate-500 font-medium">Select course to configure or inspect matrix</span>
+            <span class="text-[11px] text-slate-500 font-medium">Select course to inspect CO, PO, and PSO attainment</span>
           </div>
 
           <!-- Subject Selector for OBE -->
@@ -3933,78 +3929,11 @@ body {
             </div>
           </div>
 
-          <!-- Section 1: Course Outcomes (CO1 to CO5) & PO/PSO Correlation Matrix Configuration -->
-          <div class="space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <i class="fa-solid fa-table-cells text-indigo-600"></i>
-                  <span data-i18n="obe_sec1_title">1. CO - PO & CO - PSO Correlation Matrix (1–3 Scale)</span>
-                </h4>
-                <p class="text-[11px] text-slate-500 mt-0.5" data-i18n="obe_sec1_hint">Click cells to toggle correlation: 3 = High, 2 = Medium, 1 = Low, - = None. Column averages are auto-calculated.</p>
-              </div>
-              <div class="flex items-center gap-2">
-                <button type="button" onclick="saveCourseOutcomesConfiguration()" class="btn-3d-emerald px-4 py-1.5 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 shadow-sm">
-                  <i class="fa-solid fa-floppy-disk"></i>
-                  <span data-i18n="btn_save_co_config">Save CO & Matrix</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- INTERACTIVE CO-PO & CO-PSO ARTICULATION MATRIX (GRID) -->
-            <div class="border-2 border-indigo-200/80 rounded-2xl p-4 bg-gradient-to-br from-indigo-50/40 via-white to-orange-50/30 space-y-3">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <span class="text-xs font-extrabold text-indigo-950 flex items-center gap-1.5">
-                  <i class="fa-solid fa-network-wired text-indigo-600"></i>
-                  <span data-i18n="lbl_copo_matrix_grid_title">CO - PO / PSO Articulation Matrix (1-3 Scale)</span>
-                </span>
-                <!-- Color Legend -->
-                <div class="flex items-center gap-1.5 text-[10.5px] font-bold">
-                  <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">3 = High</span>
-                  <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-300">2 = Med</span>
-                  <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">1 = Low</span>
-                  <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">- = 0</span>
-                </div>
-              </div>
-
-              <!-- Matrix Table Overflow Container -->
-              <div class="overflow-x-auto rounded-xl border border-indigo-200 bg-white shadow-sm">
-                <table class="w-full text-center text-xs">
-                  <thead id="obe-matrix-thead" class="bg-indigo-900 text-white font-bold text-[11px]">
-                    <!-- Dynamically generated header with PO1-PO12 and PSO1-PSO4 -->
-                  </thead>
-                  <tbody id="obe-matrix-tbody" class="divide-y divide-slate-100 bg-white">
-                    <tr><td colspan="18" class="p-4 text-center text-slate-400">कृपया वरील ड्रॉपडाउनमधून विषय निवडा...</td></tr>
-                  </tbody>
-                  <tfoot id="obe-matrix-tfoot" class="bg-slate-100 font-extrabold text-slate-900 border-t-2 border-indigo-300 text-xs">
-                    <!-- Column averages row -->
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-
-            <!-- CO Statements & Benchmark Details Table -->
-            <div class="overflow-x-auto border border-slate-200 rounded-xl">
-              <table class="w-full text-left text-xs">
-                <thead class="bg-slate-100 text-slate-800 font-bold border-b border-slate-200">
-                  <tr>
-                    <th class="p-3 w-16 text-center" data-i18n="th_obe_co">CO</th>
-                    <th class="p-3" data-i18n="th_obe_co_statement">Course Outcome Statement</th>
-                    <th class="p-3 w-32 text-center" data-i18n="th_obe_benchmark">Benchmark (%)</th>
-                  </tr>
-                </thead>
-                <tbody id="obe-co-setup-tbody" class="divide-y divide-slate-100 bg-white">
-                  <tr><td colspan="3" class="p-4 text-center text-slate-400">कृपया वरील ड्रॉपडाउनमधून विषय निवडा...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Section 2: Live Attainment Evaluation Matrix -->
+          <!-- Section 1: Evaluated CO Attainment Report -->
           <div class="space-y-3">
             <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
               <i class="fa-solid fa-chart-column text-teal-600"></i>
-              <span data-i18n="obe_sec2_title">2. Evaluated CO Attainment Report</span>
+              <span data-i18n="obe_sec2_title">1. Evaluated CO Attainment Report</span>
             </h4>
             <div class="overflow-x-auto border border-slate-200 rounded-xl">
               <table class="w-full text-left text-xs">
@@ -4026,11 +3955,11 @@ body {
             </div>
           </div>
 
-          <!-- Section 3: Universal Program Outcomes (PO1 to PO12) Live Matrix for this subject -->
+          <!-- Section 2: Universal Program Outcomes (PO1 to PO12) Live Matrix for this subject -->
           <div class="space-y-3">
             <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
               <i class="fa-solid fa-graduation-cap text-indigo-600"></i>
-              <span data-i18n="obe_sec3_title">3. Program Outcomes (PO1 to PO12) Attainment</span>
+              <span data-i18n="obe_sec3_title">2. Program Outcomes (PO1 to PO12) Attainment</span>
             </h4>
             <div class="overflow-x-auto border border-slate-200 rounded-xl">
               <table class="w-full text-left text-xs">
@@ -4050,11 +3979,11 @@ body {
             </div>
           </div>
 
-          <!-- Section 4: Program Specific Outcomes (PSO1 to PSO4) Live Matrix for this subject -->
+          <!-- Section 3: Program Specific Outcomes (PSO1 to PSO4) Live Matrix for this subject -->
           <div class="space-y-3">
             <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
               <i class="fa-solid fa-shapes text-purple-600"></i>
-              <span data-i18n="obe_sec3_pso_title">4. Program Specific Outcomes (PSO1 to PSO4) Attainment</span>
+              <span data-i18n="obe_sec3_pso_title">3. Program Specific Outcomes (PSO1 to PSO4) Attainment</span>
             </h4>
             <div class="overflow-x-auto border border-slate-200 rounded-xl">
               <table class="w-full text-left text-xs">
@@ -8173,7 +8102,7 @@ const I18N = {
     "lbl_teacher_students": "Evaluated Students",
     "lbl_teacher_overall_att": "Faculty Attainment",
     "lbl_teacher_naac_level": "NAAC Level",
-    "lbl_course_drilldown_title": "Course-wise CO-PO Matrix & Evaluation Verification",
+    "lbl_course_drilldown_title": "Course-wise Outcome Attainment (CO, PO & PSO)",
     "btn_load_obe_template": "Load Standard Template",
     "lbl_obe_select_subject": "Select Subject & Paper *",
     "ph_obe_select_subject": "-- Select Subject --",
@@ -8182,20 +8111,20 @@ const I18N = {
     "obe_kpi_bench_lbl": "Target Benchmark",
     "obe_kpi_avg_lbl": "Avg CO Attainment",
     "obe_kpi_level_lbl": "NAAC Attainment Level",
-    "obe_sec1_title": "1. Course Outcomes & Program Outcomes Correlation Matrix",
-    "obe_sec1_hint": "Click cells to toggle correlation: 3 = High, 2 = Medium, 1 = Low, - = None. Column averages are auto-calculated.",
-    "btn_save_co_config": "Save CO & Matrix",
+    "obe_sec1_title": "Course Outcomes Configuration",
+    "obe_sec1_hint": "Correlation scale: 3 = High, 2 = Medium, 1 = Low, - = None.",
+    "btn_save_co_config": "Save CO Configuration",
     "th_obe_co": "CO Code",
     "th_obe_co_statement": "Course Outcome Statement",
     "th_obe_benchmark": "Benchmark (%)",
-    "obe_sec2_title": "2. Evaluated CO Attainment Report",
+    "obe_sec2_title": "1. Evaluated Course Outcomes (CO1 to CO5) Attainment Report",
     "th_obe_assessments": "Assessments",
     "th_obe_students_eval": "Evaluated / Qualified Students",
     "th_obe_attainment": "Attainment (%)",
     "th_obe_naac_level": "NAAC Level",
     "th_obe_status": "Status",
-    "obe_sec3_title": "3. Program Outcomes Attainment (PO1 to PO12)",
-    "obe_sec3_pso_title": "4. Program Specific Outcomes Attainment (PSO1 to PSO4)",
+    "obe_sec3_title": "2. Program Outcomes (PO1 to PO12) Attainment Report",
+    "obe_sec3_pso_title": "3. Program Specific Outcomes (PSO1 to PSO4) Attainment Report",
     "th_obe_po_code": "Outcome Code",
     "th_obe_po_title": "Program Outcome Title",
     "th_obe_pso_title": "Program Specific Outcome Title",
@@ -8879,7 +8808,7 @@ const I18N = {
     "lbl_teacher_students": "परीक्षित विद्यार्थी",
     "lbl_teacher_overall_att": "प्राध्यापक साध्यता",
     "lbl_teacher_naac_level": "NAAC पातळी",
-    "lbl_course_drilldown_title": "विषयनिहाय CO-PO मॅट्रिक्स व मूल्यमापन पडताळणी",
+    "lbl_course_drilldown_title": "विषयनिहाय फलनिष्पत्ती साध्यता (CO, PO व PSO)",
     "btn_load_obe_template": "डीफॉल्ट COs व मॅट्रिक्स लोड करा",
     "lbl_obe_select_subject": "विषय व पेपर निवडा *",
     "ph_obe_select_subject": "-- विषय निवडा --",
@@ -8888,20 +8817,20 @@ const I18N = {
     "obe_kpi_bench_lbl": "उद्दिष्ट बेंचमार्क",
     "obe_kpi_avg_lbl": "सरासरी CO साध्यता",
     "obe_kpi_level_lbl": "NAAC साध्यता पातळी",
-    "obe_sec1_title": "१. अभ्यासक्रम निष्पत्ती व पदवी निष्पत्ती सहसंबंध मॅट्रिक्स",
-    "obe_sec1_hint": "प्रत्येक चौकटीवर क्लिक करून सहसंबंध बदला: ३ = उच्च, २ = मध्यम, १ = प्राथमिक, - = निरंक. स्तंभांची सरासरी आपोआप निघते.",
-    "btn_save_co_config": "CO व मॅट्रिक्स सेव्ह करा",
+    "obe_sec1_title": "अभ्यासक्रम निष्पत्ती मांडणी",
+    "obe_sec1_hint": "सहसंबंध: ३ = उच्च, २ = मध्यम, १ = प्राथमिक, - = निरंक.",
+    "btn_save_co_config": "CO सेव्ह करा",
     "th_obe_co": "CO कोड",
     "th_obe_co_statement": "अभ्यासक्रम उद्दिष्ट विधान",
     "th_obe_benchmark": "बेंचमार्क (%)",
-    "obe_sec2_title": "२. प्रत्यक्ष विद्यार्थी मूल्यमापन साध्यता अहवाल",
+    "obe_sec2_title": "१. अभ्यासक्रम निष्पत्ती (CO1 ते CO5) प्रत्यक्ष साध्यता अहवाल",
     "th_obe_assessments": "चाचण्या",
     "th_obe_students_eval": "परीक्षित / पात्र विद्यार्थी",
     "th_obe_attainment": "साध्यता (%)",
     "th_obe_naac_level": "NAAC पातळी",
     "th_obe_status": "स्थिती",
-    "obe_sec3_title": "३. पदवी कार्यक्रम निष्पत्ती साध्यता (PO1 ते PO12)",
-    "obe_sec3_pso_title": "४. पदवी विशेष निष्पत्ती साध्यता (PSO1 ते PSO4)",
+    "obe_sec3_title": "२. पदवी कार्यक्रम निष्पत्ती (PO1 ते PO12) साध्यता अहवाल",
+    "obe_sec3_pso_title": "३. पदवी विशेष निष्पत्ती (PSO1 ते PSO4) साध्यता अहवाल",
     "th_obe_po_code": "आउटकम कोड",
     "th_obe_po_title": "पदवी उद्दिष्ट शीर्षक",
     "th_obe_pso_title": "विशेष पदवी उद्दिष्ट शीर्षक",
@@ -9039,9 +8968,8 @@ function setLanguage(lang) {
         const activeSubSec = document.querySelector('.t-sub-section.active');
         const activeSecId = activeSubSec ? activeSubSec.id.replace('t-sec-', '') : 'dashboard';
         if (activeSecId === 'naac-obe') {
-          if (typeof currentObeSubjectCos !== 'undefined' && currentObeSubjectCos && currentObeSubjectCos.length > 0) {
-            renderObeMatrixGrid(currentObeSubjectCos, currentObeProgramOutcomes, currentObeProgramSpecificOutcomes);
-            renderObeCoSetupTable(currentObeSubjectCos);
+          if (typeof loadTeacherComprehensiveObeReport === 'function') {
+            loadTeacherComprehensiveObeReport();
           }
           if (typeof currentObeAttainmentData !== 'undefined' && currentObeAttainmentData) {
             updateObeKpis(currentObeAttainmentData, currentObeSubjectCos);
@@ -9082,13 +9010,9 @@ function setLanguage(lang) {
       if (typeof loadTeacherComprehensiveObeReport === 'function') {
         loadTeacherComprehensiveObeReport();
       }
-      if (typeof currentObeSubjectCos !== 'undefined' && currentObeSubjectCos && currentObeSubjectCos.length > 0) {
-        renderObeMatrixGrid(currentObeSubjectCos, currentObeProgramOutcomes, currentObeProgramSpecificOutcomes);
-        renderObeCoSetupTable(currentObeSubjectCos);
-        if (typeof currentObeAttainmentData !== 'undefined' && currentObeAttainmentData) {
-          updateObeKpis(currentObeAttainmentData, currentObeSubjectCos);
-          renderObeLiveAttainmentTables(currentObeAttainmentData);
-        }
+      if (typeof currentObeAttainmentData !== 'undefined' && currentObeAttainmentData) {
+        updateObeKpis(currentObeAttainmentData, currentObeSubjectCos);
+        renderObeLiveAttainmentTables(currentObeAttainmentData);
       }
     }
     const adminNaacSec = document.getElementById('a-sec-admin-naac-attainment');
@@ -21238,21 +21162,15 @@ async function loadObeDataForSelectedSubject() {
     }
     currentObeSubjectCos = cos;
 
-    // 3. Render Articulation Matrix Grid (CO1-CO5 vs PO1-PO12 & PSO1-PSO4)
-    renderObeMatrixGrid(cos, currentObeProgramOutcomes, currentObeProgramSpecificOutcomes);
-
-    // 4. Render CO Statements & Benchmarks Table
-    renderObeCoSetupTable(cos);
-
-    // 5. Fetch Live Attainment Report
+    // 3. Fetch Live Attainment Report for this subject
     const attRes = await fetch(`/api/obe/teacher-attainment/${subjectId}`);
     const attData = await attRes.json();
     currentObeAttainmentData = attData;
 
-    // 6. Update Live KPI Cards
+    // 4. Update Live KPI Cards
     updateObeKpis(attData, cos);
 
-    // 7. Render Live Attainment Tables (CO, PO, and PSO)
+    // 5. Render Live Attainment Tables (CO, PO, and PSO)
     renderObeLiveAttainmentTables(attData);
 
   } catch (e) {
